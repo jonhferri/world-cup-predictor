@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="no">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="512x512" href="/icons/fhun_icon.png" />
+		<link rel="apple-touch-icon" href="/icons/maskable_icon_x192.png" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
+		<meta name="theme-color" content="#080b14" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta
+			name="apple-mobile-web-app-status-bar-style"
+			content="black-translucent"
+		/>
+		<meta name="apple-mobile-web-app-title" content="VM Tipping" />
+		<title>VM Tipping</title>
+		<link href="/_app/immutable/entry/start.CI9Vwy7C.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/ClXfqygg.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DKDWwNqH.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/S1itGZR4.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/B4DuKhlM.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/EwVl5-DC.js" rel="modulepreload">
+		<link href="/_app/immutable/entry/app.DyCTGeHn.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/sDCgaX48.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/T0t-bkj0.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/67kKxrrg.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BCaUqrJl.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BycQlmcy.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BmAzS--p.js" rel="modulepreload">
+		<link href="/_app/immutable/nodes/0.kVrV7jAT.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/COfmYR1w.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/D0xF3JM0.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/Bpu6de3c.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/CExlPuFT.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/B5PzHDTy.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/BCN2vXAE.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/i0Wk55ZP.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/Dt7VKhFJ.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DVBYnZG6.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/COlkAq5l.js" rel="modulepreload">
+		<link href="/_app/immutable/chunks/DmJ1bvWY.js" rel="modulepreload">
+		
+		<link href="/_app/immutable/assets/Avatar.CelNmy1g.css" rel="stylesheet">
+		<link href="/_app/immutable/assets/0.BZ24P683.css" rel="stylesheet">
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">
+			<script>
+				{
+					__sveltekit_wjc8xn = {
+						base: ""
+					};
+
+					const element = document.currentScript.parentElement;
+
+					Promise.all([
+						import("/_app/immutable/entry/start.CI9Vwy7C.js"),
+						import("/_app/immutable/entry/app.DyCTGeHn.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element);
+					});
+
+					if ('serviceWorker' in navigator) {
+						const script_url = '/service-worker.js';
+						const policy = globalThis?.window?.trustedTypes?.createPolicy(
+							'sveltekit-trusted-url',
+							{ createScriptURL(url) { return url; } }
+						);
+						const sanitised = policy?.createScriptURL(script_url) ?? script_url;
+						addEventListener('load', function () {
+							navigator.serviceWorker.register(sanitised);
+						});
+					}
+				}
+			</script>
+		</div>
+	</body>
+</html>

@@ -45,7 +45,7 @@ COPY --from=backend /wm-pickems /usr/local/bin/wm-pickems
 RUN ln -s /usr/local/bin/wm-pickems /usr/local/bin/world-cup-pool
 USER app
 EXPOSE 8090
-VOLUME ["/pb_data"]
+#VOLUME ["/pb_data"]
 HEALTHCHECK --interval=30s --timeout=4s --start-period=10s \
 	CMD wget -qO- http://127.0.0.1:8090/api/health >/dev/null 2>&1 || exit 1
 ENTRYPOINT ["wm-pickems"]

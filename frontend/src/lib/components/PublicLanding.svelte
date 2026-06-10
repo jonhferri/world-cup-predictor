@@ -174,7 +174,7 @@
 </script>
 
 <svelte:head>
-	<title>VM Tipping</title>
+	<title>Cozinhámos Predictions</title>
 	<meta
 		name="description"
 		content={copy.description}

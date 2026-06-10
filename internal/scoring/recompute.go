@@ -53,6 +53,9 @@ func Recompute(app core.App) error {
 		}
 
 		// ---- forecast scores ----
+		// Group / KO scoring is auto-derived from tips, so score every user
+		// who has submitted at least one tip (not just those with a forecast
+		// record). Golden boot scoring still requires a forecast record.
 		fsCol, err := tx.FindCollectionByNameOrId("forecast_scores")
 		if err != nil {
 			return err
@@ -63,12 +66,37 @@ func Recompute(app core.App) error {
 				return err
 			}
 		}
+
+		// Collect all users who have tips.
+		allTips, _ := tx.FindRecordsByFilter("tips", "id != ''", "", 0, 0)
+		tipperIDs := map[string]bool{}
+		for _, t := range allTips {
+			tipperIDs[t.GetString("user")] = true
+		}
+
+		// Build forecast record lookup by user for golden boot scoring.
+		forecastByUser := map[string]*core.Record{}
 		forecasts, _ := tx.FindRecordsByFilter("forecasts", "id != ''", "", 0, 0)
 		for _, fc := range forecasts {
+			forecastByUser[fc.GetString("user")] = fc
+		}
+
+		// Score every tipper. Users without a forecast record get a synthetic
+		// empty record (golden boot = 0).
+		forecCol, _ := tx.FindCollectionByNameOrId("forecasts")
+		for uid := range tipperIDs {
+			fc := forecastByUser[uid]
+			if fc == nil && forecCol != nil {
+				fc = core.NewRecord(forecCol)
+				fc.Set("user", uid)
+			}
+			if fc == nil {
+				continue
+			}
 			for cid, cfg := range configs {
 				bd, total := scoreForecast(tx, cfg, fc)
 				rec := core.NewRecord(fsCol)
-				rec.Set("user", fc.GetString("user"))
+				rec.Set("user", uid)
 				rec.Set("config", cid)
 				rec.Set("points", total)
 				bj, _ := json.Marshal(bd)

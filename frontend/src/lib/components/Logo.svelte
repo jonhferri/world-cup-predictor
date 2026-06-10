@@ -11,11 +11,11 @@
 	const t = $derived(strings[language.resolved]);
 </script>
 
-<a class="logo" class:compact class:hero={variant === 'hero'} href="/" aria-label={`VM Tipping — ${t.nav.home.toLowerCase()}`}>
+<a class="logo" class:compact class:hero={variant === 'hero'} href="/" aria-label={`Cozinhámos Predictions — ${t.nav.home.toLowerCase()}`}>
 	<span class="mark-frame"><img class="mark" src="/logos/fhun_logo-icon.svg" alt="" /></span>
 	{#if !compact}
 		<span class="copy">
-			<span class="word">VM&nbsp;Tipping</span>
+			<span class="word">Cozinhámos</span>
 			{#if variant === 'hero' && tagline}<span class="tagline">{tagline}</span>{/if}
 		</span>
 	{/if}

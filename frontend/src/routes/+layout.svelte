@@ -11,7 +11,6 @@
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 	import InfoButton from '$lib/components/InfoButton.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import LanguageToggle from '$lib/components/LanguageToggle.svelte';
 	import { serverClock } from '$lib/serverclock.svelte';
 	import { language } from '$lib/language.svelte';
 	import { tipsStore } from '$lib/tips.svelte';
@@ -85,7 +84,7 @@
 		<div class="rail-search"><AppSearch /></div>
 		<NavLinks variant="rail" />
 		<div class="spacer"></div>
-		<div class="rail-actions"><LanguageToggle compact /><ThemeToggle compact /><InfoButton /></div>
+		<div class="rail-actions"><ThemeToggle compact /><InfoButton /></div>
 		<div class="rail-user"><UserMenu align="left" up showName /></div>
 	</aside>
 
@@ -94,18 +93,11 @@
 {:else}
 	<div class="public-topbar">
 		<div class="public-topbar-shell">
-			<div
-				class="auth-actions"
-				class:single={!showPublicThemeToggle}
-				aria-label={showPublicThemeToggle
-					? language.text('Visningsvalg', 'Visingsval', 'Display options')
-					: language.text('Språkvalg', 'Språkval', 'Language options')}
-			>
-				<LanguageToggle compact />
-				{#if showPublicThemeToggle}
+			{#if showPublicThemeToggle}
+				<div class="auth-actions" aria-label="Display options">
 					<ThemeToggle compact />
-				{/if}
-			</div>
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}

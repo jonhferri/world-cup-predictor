@@ -202,16 +202,18 @@ func Register(app core.App, se *core.ServeEvent) {
 				continue
 			}
 			row := map[string]any{
-				"userId":    uid,
-				"name":      u.GetString("name"),
-				"isMe":      isMe,
-				"ftHome":    t.GetInt("ftHome"),
-				"ftAway":    t.GetInt("ftAway"),
-				"etHome":    t.GetInt("etHome"),
-				"etAway":    t.GetInt("etAway"),
-				"penWinner": t.GetString("penWinner"),
-				"advancer":  t.GetString("advancer"),
-				"points":    pointsFor(uid),
+				"userId":      uid,
+				"name":        u.GetString("name"),
+				"isMe":        isMe,
+				"ftHome":      t.GetInt("ftHome"),
+				"ftAway":      t.GetInt("ftAway"),
+				"etHome":      t.GetInt("etHome"),
+				"etAway":      t.GetInt("etAway"),
+				"penWinner":   t.GetString("penWinner"),
+				"advancer":    t.GetString("advancer"),
+				"firstTeam":   t.GetString("firstTeam"),
+				"firstPlayer": t.GetString("firstPlayer"),
+				"points":      pointsFor(uid),
 			}
 			if isMe {
 				r := row

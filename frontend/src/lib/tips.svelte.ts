@@ -41,6 +41,15 @@ export interface Tip {
 	etAway: number;
 	penWinner: string;
 	advancer: string;
+	firstTeam: string;
+	firstPlayer: string;
+}
+
+export interface Player {
+	id: string;
+	name: string;
+	position: string;
+	teamId: string;
 }
 
 export interface MatchOdds {
@@ -63,6 +72,8 @@ export interface FriendTip {
 	etAway: number;
 	penWinner: string;
 	advancer: string;
+	firstTeam: string;
+	firstPlayer: string;
 	points: number; // -1 = no tip submitted
 }
 
@@ -76,6 +87,7 @@ class TipsStore {
 	oddsSource = $state<'odds_api' | 'rankings' | 'none'>('none');
 	loaded = $state(false);
 	private loadPromise: Promise<void> | null = null;
+	private playerCache = new Map<string, Player[]>(); // teamId -> players
 
 	async load() {
 		if (this.loaded) return;
@@ -123,7 +135,9 @@ class TipsStore {
 				etHome: r.etHome,
 				etAway: r.etAway,
 				penWinner: r.penWinner,
-				advancer: r.advancer
+				advancer: r.advancer,
+				firstTeam: r.firstTeam ?? '',
+				firstPlayer: r.firstPlayer ?? ''
 			};
 		this.tips = tip;
 		this.loaded = true;
@@ -155,7 +169,9 @@ class TipsStore {
 			ftAway: t.ftAway,
 			etHome: t.etHome,
 			etAway: t.etAway,
-			penWinner: t.penWinner || ''
+			penWinner: t.penWinner || '',
+			firstTeam: t.firstTeam || '',
+			firstPlayer: t.firstPlayer || ''
 		};
 		let rec;
 		if (t.id) {
@@ -182,7 +198,9 @@ class TipsStore {
 			etHome: rec.etHome,
 			etAway: rec.etAway,
 			penWinner: rec.penWinner,
-			advancer: rec.advancer
+			advancer: rec.advancer,
+			firstTeam: rec.firstTeam ?? '',
+			firstPlayer: rec.firstPlayer ?? ''
 		};
 	}
 
@@ -191,6 +209,32 @@ class TipsStore {
 			method: 'GET'
 		});
 		return r.tips ?? [];
+	}
+
+	async playersForTeams(teamIds: string[]): Promise<Player[]> {
+		const missing = teamIds.filter((id) => !this.playerCache.has(id));
+		if (missing.length > 0) {
+			const filter = missing.map((id) => `teamId = "${id}"`).join(' || ');
+			const rows = await pb
+				.collection('players')
+				.getFullList({ filter, sort: 'name' });
+			// Group by teamId and populate cache.
+			const byTeam = new Map<string, Player[]>();
+			for (const r of rows) {
+				const entry: Player = {
+					id: r.id,
+					name: r.name,
+					position: r.position,
+					teamId: r.teamId
+				};
+				if (!byTeam.has(r.teamId)) byTeam.set(r.teamId, []);
+				byTeam.get(r.teamId)!.push(entry);
+			}
+			for (const id of missing) {
+				this.playerCache.set(id, byTeam.get(id) ?? []);
+			}
+		}
+		return teamIds.flatMap((id) => this.playerCache.get(id) ?? []);
 	}
 }
 

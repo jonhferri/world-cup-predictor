@@ -1,9 +1,9 @@
 {
   "id": "/",
-  "name": "VM Tipping",
-  "short_name": "VM Tipping",
-  "description": "Kamptips og VM-tips for fotball-VM 2026.",
-  "lang": "no",
+  "name": "Cozinhámos Predictions",
+  "short_name": "Cozinhámos",
+  "description": "Match picks and predictions for the 2026 World Cup.",
+  "lang": "en",
   "dir": "ltr",
   "start_url": "/",
   "scope": "/",

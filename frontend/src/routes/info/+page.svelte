@@ -20,11 +20,11 @@
 	let flow = $derived.by(() => [
 		{
 			icon: Telescope,
-			title: language.text('VM-tips før avspark', 'VM-tips før avspark', 'World Cup tips before kickoff'),
+			title: language.text('Velg toppscorer før avspark', 'Vel toppscorar før avspark', 'Pick your Golden Boot winner before kickoff'),
 			text: language.text(
-				'Sett grupperekkefølge, beste treere, hele sluttspillet og ett toppscorarvalg før første avspark. Du kan også søke opp og legge til en outsider hvis listen er for smal.',
-				'Set grupperekkjefølgje, beste trearar, heile sluttspelstreet og eitt toppscorarval før første avspark. Du kan òg søkje opp og leggje til ein outsider dersom shortlist er for smal.',
-				'Set the group order, best thirds, full knockout bracket, and one top-scorer pick before the first whistle. You can also search and add an outsider if the shortlist is too narrow.'
+				'Velg din toppscorervinner og søk opp en outsider om du tror på det. Grupper og sluttspilltre utledes automatisk fra kamptipsene dine.',
+				'Vel toppscorarvinnar og søk opp ein outsider om du trur på det. Grupper og sluttspeltre vert utleidde automatisk frå kamptipsa dine.',
+				'Pick your Golden Boot winner and search for an outsider if you back one. Group standings and the knockout bracket are auto-derived from your match tips.'
 			)
 		},
 		{
@@ -57,10 +57,13 @@
 	]);
 
 	let matchPoints = $derived.by(() => [
-		{ label: language.text('Rett utfall', 'Rett utfall', 'Correct outcome'), value: '3', detail: language.text('1/X/2 i gruppespill, laget som går videre i sluttspill', '1/X/2 i gruppespel, laget som går vidare i sluttspel', '1/X/2 in group stage, the team that advances in knockout') },
-		{ label: language.text('Eksakt resultat', 'Eksakt resultat', 'Exact score'), value: '+1', detail: language.text('samme resultat som sluttresultatet', 'same resultat som sluttresultatet', 'same score as the final result') },
-		{ label: language.text('Totalt mål', 'Totalt mål', 'Total goals'), value: '+1', detail: language.text('for eksempel teller både 2-1 og 3-0 som 3 mål', 'til dømes tel både 2-1 og 3-0 som 3 mål', 'for example 2-1 and 3-0 both count as 3 goals') },
-		{ label: language.text('Rett målforskjell', 'Rett målforskjell', 'Correct goal difference'), value: '+1', detail: language.text('for eksempel ettmålsseier eller uavgjort', 'til dømes eittmålsiger eller uavgjort', 'for example a one-goal win or a draw') }
+		{ label: language.text('Rett utfall', 'Rett utfall', 'Correct outcome'), value: '5', detail: language.text('1/X/2 i gruppespill, laget som går videre i sluttspill', '1/X/2 i gruppespel, laget som går vidare i sluttspel', '1/X/2 in group stage, the team that advances in knockout') },
+		{ label: language.text('Eksakt resultat', 'Eksakt resultat', 'Exact score'), value: '+10', detail: language.text('samme resultat som sluttresultatet', 'same resultat som sluttresultatet', 'same score as the final result') },
+		{ label: language.text('Eksakt hjemmemål', 'Eksakt heimemål', 'Exact home goals'), value: '+5', detail: language.text('du tippa nøyaktig antall hjemmemål', 'du tippa nøyaktig tal heimemål', 'you guessed the home team\'s exact goal count') },
+		{ label: language.text('Eksakt bortemål', 'Eksakt bortemål', 'Exact away goals'), value: '+5', detail: language.text('du tippa nøyaktig antall bortemål', 'du tippa nøyaktig tal bortemål', 'you guessed the away team\'s exact goal count') },
+		{ label: language.text('Rett målforskjell', 'Rett målforskjell', 'Correct goal difference'), value: '+5', detail: language.text('for eksempel ettmålsseier eller uavgjort', 'til dømes eittmålsiger eller uavgjort', 'for example a one-goal win or a draw') },
+		{ label: language.text('Første lag til å score', 'Første lag til å score', 'First team to score'), value: '+5', detail: language.text('laget som scorer kampens første mål', 'laget som scorar kampens første mål', 'the team that scores the first goal of the match') },
+		{ label: language.text('Første spiller til å score', 'Første spelar til å score', 'First player to score'), value: '+10', detail: language.text('spilleren som scorer kampens første mål', 'spelaren som scorar kampens første mål', 'the player who scores the first goal of the match') }
 	]);
 
 	let forecastPoints = $derived.by(() => [
@@ -88,7 +91,7 @@
 </script>
 
 <svelte:head>
-	<title>{language.text('Info om spillet', 'Info om spelet', 'About the game')} · VM Tipping</title>
+	<title>{language.text('Info om spillet', 'Info om spelet', 'About the game')} · Cozinhámos Predictions</title>
 </svelte:head>
 
 <div class="info-page">
@@ -100,20 +103,20 @@
 	<section class="hero" aria-labelledby="info-title">
 		<div class="hero-copy">
 			<p class="kicker">Info</p>
-			<h1 id="info-title">{language.text('Slik fungerer VM Tipping', 'Slik fungerer VM Tipping', 'How VM Tipping works')}</h1>
+			<h1 id="info-title">{language.text('Slik fungerer Cozinhámos Predictions', 'Slik fungerer Cozinhámos Predictions', 'How Cozinhámos Predictions works')}</h1>
 			<p class="lead">
 				{language.text(
-					'Tipp hele VM og én toppscorer før avspark, søk opp og legg til en annen spiller hvis du tror på en outsider, legg inn kamptips før hver kamp, og konkurrer med venner i ligaer gjennom turneringen.',
-					'Tipp heile VM og éin toppscorar før avspark, søk opp og legg til ein annan spelar dersom du trur på ein overraskande toppscorar, legg inn kamptips før kvar kamp, og konkurrer med vener i ligaer gjennom turneringa.',
-					'Pick the full World Cup and one top scorer before kickoff, search and add another player if you back a breakout scorer, enter match tips before every game, and compete with friends in leagues as the tournament rolls on.'
+					'Velg toppscorer og første lag og spiller til å score i hver kamp. Grupper og sluttspilltre utledes automatisk fra kamptipsene dine. Konkurrer med venner i ligaer gjennom hele turneringen.',
+					'Vel toppscorar og første lag og spelar til å score i kvar kamp. Grupper og sluttspeltre vert utleidde automatisk frå kamptipsa dine. Konkurrer med vener i ligaer gjennom heile turneringa.',
+					'Pick a Golden Boot winner, and a first team and player to score in every match. Group standings and the bracket are auto-derived from your match tips. Compete with friends in leagues throughout the tournament.'
 				)}
 			</p>
 		</div>
 		<div class="scoreboard" aria-label={language.text('Kort oversikt', 'Kort oversikt', 'Quick overview')}>
 			<div><strong>104</strong><span>{language.text('kamper', 'kampar', 'matches')}</span></div>
-			<div><strong>1</strong><span>{language.text('VM-tips', 'VM-tips', 'World Cup tip')}</span></div>
-			<div><strong>1</strong><span>{language.text('toppscorervalg', 'toppscorarval', 'top-scorer pick')}</span></div>
-			<div><strong>6</strong><span>{language.text('maks per kamp', 'maks per kamp', 'max per game')}</span></div>
+			<div><strong>1</strong><span>{language.text('toppscorervalg', 'toppscorarval', 'Golden Boot pick')}</span></div>
+			<div><strong>45</strong><span>{language.text('maks per kamp', 'maks per kamp', 'max per game')}</span></div>
+			<div><strong>15</strong><span>{language.text('toppscorer-poeng', 'toppscorar-poeng', 'Golden Boot pts')}</span></div>
 		</div>
 	</section>
 
@@ -165,7 +168,7 @@
 					<Volleyball size={20} />
 					<h3>{language.text('Kamptips', 'Kamptips', 'Match tips')}</h3>
 				</div>
-				<p>{language.text('Maks 6 poeng per kamp. I sluttspill teller laget som går videre som rett utfall.', 'Maks 6 poeng per kamp. I sluttspel tel laget som går vidare som rett utfall.', 'Max 6 points per match. In knockout, the advancing team counts as the correct outcome.')}</p>
+				<p>{language.text('Maks 45 poeng per kamp. I sluttspill teller laget som går videre som rett utfall.', 'Maks 45 poeng per kamp. I sluttspel tel laget som går vidare som rett utfall.', 'Max 45 points per match. In knockout, the advancing team counts as the correct outcome.')}</p>
 				<div class="point-list">
 					{#each matchPoints as point}
 						<div class="point-row">
@@ -182,9 +185,9 @@
 			<article class="card score-panel forecast-panel">
 				<div class="panel-title">
 					<Telescope size={20} />
-					<h3>{language.text('VM-tips', 'VM-tips', 'World Cup tips')}</h3>
+					<h3>{language.text('Turneringstips', 'Turneringstips', 'Tournament forecast')}</h3>
 				</div>
-				<p>{language.text('VM-tipset låses ved første kamp og gir poeng etter hvert som grupper, runder, mester og toppscorer blir avgjort.', 'VM-tipset låser seg ved første kamp og gir poeng etter kvart som grupper, rundar, meister og toppscorar blir avgjorde.', 'The World Cup tip locks at the first match and scores as groups, rounds, champion, and Golden Boot are decided.')}</p>
+				<p>{language.text('Grupper og sluttspilltre utledes automatisk fra kamptipsene dine og gir poeng etter hvert som resultatene faller. Toppscorer-valget låses ved første kamp.', 'Grupper og sluttspeltre vert utleidde automatisk frå kamptipsa dine og gir poeng etter kvart som resultata fell. Toppscorarval låser seg ved første kamp.', 'Group standings and the bracket are auto-derived from your match tips and score as results come in. The Golden Boot pick locks at the first match.')}</p>
 				<div class="forecast-grid">
 					{#each forecastPoints as point}
 						<div>

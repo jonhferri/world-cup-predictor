@@ -24,10 +24,12 @@ import (
 
 type Config struct {
 	Match struct {
-		Tendency   int `json:"tendency"`   // correct result (group 1/X/2; KO = who advances)
-		Exact      int `json:"exact"`      // exact reference score
-		TotalGoals int `json:"totalGoals"` // correct total goals
-		GoalDiff   int `json:"goalDiff"`   // correct goal difference
+		Tendency          int `json:"tendency"`          // correct result (group 1/X/2; KO = who advances)
+		Exact             int `json:"exact"`             // exact reference score
+		TotalGoals        int `json:"totalGoals"`        // correct total goals
+		GoalDiff          int `json:"goalDiff"`          // correct goal difference
+		FirstTeamScorer   int `json:"firstTeamScorer"`   // correct first team to score
+		FirstPlayerScorer int `json:"firstPlayerScorer"` // correct first player to score
 	} `json:"match"`
 	Forecast struct {
 		GroupPosition     int            `json:"groupPosition"`     // per exact final position
@@ -89,30 +91,36 @@ func sign(n int) int {
 // ---- Match (Tip) scoring ----
 
 type tipComponents struct {
-	Tendency   int `json:"tendency"` // correct result / who advances
-	Exact      int `json:"exact"`
-	TotalGoals int `json:"totalGoals"`
-	GoalDiff   int `json:"goalDiff"`
-	GdDev      int `json:"gdDev"` // |predicted GD - actual GD| (tiebreaker only)
+	Tendency          int `json:"tendency"` // correct result / who advances
+	Exact             int `json:"exact"`
+	TotalGoals        int `json:"totalGoals"`
+	GoalDiff          int `json:"goalDiff"`
+	GdDev             int `json:"gdDev"` // |predicted GD - actual GD| (tiebreaker only)
+	FirstTeamScorer   int `json:"firstTeamScorer"`
+	FirstPlayerScorer int `json:"firstPlayerScorer"`
 }
 
-// points — max 6 per game (3 + 1 + 1 + 1).
+// points — max 6 per game (3+1+1+1) plus optional first-scorer bonuses.
 func (c tipComponents) points() int {
-	return c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff
+	return c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff + c.FirstTeamScorer + c.FirstPlayerScorer
 }
 
 // MatchResult / TipPrediction are the plain inputs to the pure scorer, so the
 // rules are unit-testable without a database.
 type MatchResult struct {
-	Stage    string
-	FtH, FtA int
-	EtH, EtA int
-	Advancer string
+	Stage             string
+	FtH, FtA         int
+	EtH, EtA         int
+	Advancer          string
+	FirstTeamScorer   string
+	FirstPlayerScorer string
 }
 type TipPrediction struct {
-	FtH, FtA int
-	EtH, EtA int
-	Advancer string
+	FtH, FtA   int
+	EtH, EtA   int
+	Advancer    string
+	FirstTeam   string
+	FirstPlayer string
 }
 
 // scoreValues is the pure scoring core (see scoring_test.go). Max 6 per game:
@@ -149,8 +157,11 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 	if pH == aH && pA == aA {
 		r.Exact = cfg.Match.Exact
 	}
-	if pH+pA == aH+aA {
-		r.TotalGoals = cfg.Match.TotalGoals
+	if pH == aH {
+		r.TotalGoals += cfg.Match.TotalGoals
+	}
+	if pA == aA {
+		r.TotalGoals += cfg.Match.TotalGoals
 	}
 	if pH-pA == aH-aA {
 		r.GoalDiff = cfg.Match.GoalDiff
@@ -160,25 +171,35 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 	} else {
 		r.GdDev = d
 	}
+	if m.FirstTeamScorer != "" && m.FirstTeamScorer == p.FirstTeam {
+		r.FirstTeamScorer = cfg.Match.FirstTeamScorer
+	}
+	if m.FirstPlayerScorer != "" && strings.EqualFold(m.FirstPlayerScorer, p.FirstPlayer) {
+		r.FirstPlayerScorer = cfg.Match.FirstPlayerScorer
+	}
 	return r
 }
 
 func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
 	return scoreValues(cfg,
 		MatchResult{
-			Stage:    match.GetString("stage"),
-			FtH:      match.GetInt("ftHome"),
-			FtA:      match.GetInt("ftAway"),
-			EtH:      match.GetInt("etHome"),
-			EtA:      match.GetInt("etAway"),
-			Advancer: match.GetString("advancer"),
+			Stage:             match.GetString("stage"),
+			FtH:               match.GetInt("ftHome"),
+			FtA:               match.GetInt("ftAway"),
+			EtH:               match.GetInt("etHome"),
+			EtA:               match.GetInt("etAway"),
+			Advancer:          match.GetString("advancer"),
+			FirstTeamScorer:   match.GetString("firstTeamScorer"),
+			FirstPlayerScorer: match.GetString("firstPlayerScorer"),
 		},
 		TipPrediction{
-			FtH:      tip.GetInt("ftHome"),
-			FtA:      tip.GetInt("ftAway"),
-			EtH:      tip.GetInt("etHome"),
-			EtA:      tip.GetInt("etAway"),
-			Advancer: tip.GetString("advancer"),
+			FtH:         tip.GetInt("ftHome"),
+			FtA:         tip.GetInt("ftAway"),
+			EtH:         tip.GetInt("etHome"),
+			EtA:         tip.GetInt("etAway"),
+			Advancer:    tip.GetString("advancer"),
+			FirstTeam:   tip.GetString("firstTeam"),
+			FirstPlayer: tip.GetString("firstPlayer"),
 		},
 	)
 }
@@ -227,6 +248,91 @@ func bestThirdSet(thirds []teamAgg) map[string]bool {
 		set[t.id] = true
 	}
 	return set
+}
+
+// ---- Auto-derive group standings from tips ----
+
+// deriveGroupOrder computes predicted group standings from a user's tip
+// records for group-stage matches, using pts → gd → gf sort (simplified;
+// no head-to-head tiebreaker). Returns only groups where the user tipped
+// every match (3 matches per group of 4 teams).
+func deriveGroupOrder(groupMatches []*core.Record, tipByMatch map[string]*core.Record) map[string][]string {
+	type row struct {
+		teamID string
+		pts, gd, gf, games int
+	}
+	groupRows := map[string]map[string]*row{}
+	groupMatchCount := map[string]int{}
+
+	for _, m := range groupMatches {
+		groupMatchCount[m.GetString("groupLetter")]++
+		tip, ok := tipByMatch[m.Id]
+		if !ok {
+			continue
+		}
+		g := m.GetString("groupLetter")
+		if groupRows[g] == nil {
+			groupRows[g] = map[string]*row{}
+		}
+		home := m.GetString("homeTeam")
+		away := m.GetString("awayTeam")
+		if home == "" || away == "" {
+			continue
+		}
+		ftH := tip.GetInt("ftHome")
+		ftA := tip.GetInt("ftAway")
+		if groupRows[g][home] == nil {
+			groupRows[g][home] = &row{teamID: home}
+		}
+		if groupRows[g][away] == nil {
+			groupRows[g][away] = &row{teamID: away}
+		}
+		h := groupRows[g][home]
+		a := groupRows[g][away]
+		h.gf += ftH
+		h.gd += ftH - ftA
+		h.games++
+		a.gf += ftA
+		a.gd += ftA - ftH
+		a.games++
+		switch {
+		case ftH > ftA:
+			h.pts += 3
+		case ftH < ftA:
+			a.pts += 3
+		default:
+			h.pts++
+			a.pts++
+		}
+	}
+
+	result := map[string][]string{}
+	for letter, rows := range groupRows {
+		// Only include groups where the user tipped all matches.
+		if len(rows) < 4 {
+			continue
+		}
+		rowSlice := make([]*row, 0, len(rows))
+		for _, r := range rows {
+			rowSlice = append(rowSlice, r)
+		}
+		sort.Slice(rowSlice, func(i, j int) bool {
+			if rowSlice[i].pts != rowSlice[j].pts {
+				return rowSlice[i].pts > rowSlice[j].pts
+			}
+			if rowSlice[i].gd != rowSlice[j].gd {
+				return rowSlice[i].gd > rowSlice[j].gd
+			}
+			return rowSlice[i].gf > rowSlice[j].gf
+		})
+		_ = groupMatchCount[letter] // referenced for clarity
+		ids := make([]string, len(rowSlice))
+		for i, r := range rowSlice {
+			ids[i] = r.teamID
+		}
+		result[letter] = ids
+	}
+	return result
 }
 
 // ---- Forecast scoring ----
@@ -431,19 +537,29 @@ func (b fcBreakdown) total() int {
 	return b.Groups + b.Advance + b.Knockout + b.Champion + b.GoldenBoot
 }
 
+// scoreForecast derives group / advancement / KO predictions from the user's
+// match tips and scores them against actual results. The forecast record is
+// only used for the golden boot pick.
 func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int) {
 	b := fcBreakdown{RoundCorrect: map[string]int{}}
+	userID := fc.GetString("user")
 
-	var order map[string][]string
-	_ = fc.UnmarshalJSONField("groupOrder", &order)
-	var thirds map[string]string
-	_ = fc.UnmarshalJSONField("thirdQualifiers", &thirds)
-	var bracket map[string]string
-	_ = fc.UnmarshalJSONField("bracket", &bracket)
+	// Load user's tips keyed by match ID.
+	userTips, _ := app.FindRecordsByFilter("tips", "user = {:u}", "", 0, 0,
+		map[string]any{"u": userID})
+	tipByMatch := make(map[string]*core.Record, len(userTips))
+	for _, t := range userTips {
+		tipByMatch[t.GetString("match")] = t
+	}
+
+	// ---- Group scoring (auto-derived from tips) ----
+	groupMatches, _ := app.FindRecordsByFilter("matches",
+		"stage = 'group' && finalizedAt != ''", "", 0, 0)
+	derivedOrder := deriveGroupOrder(groupMatches, tipByMatch)
 
 	actualOrder, thirdAggs := finalGroups(app)
 	for g, actual := range actualOrder {
-		pred := order[g]
+		pred := derivedOrder[g]
 		allCorrect := len(pred) == 4
 		for i := 0; i < 4 && i < len(actual); i++ {
 			if i < len(pred) && pred[i] == actual[i] {
@@ -453,17 +569,12 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 				allCorrect = false
 			}
 		}
-		if allCorrect {
+		if allCorrect && len(pred) == 4 {
 			b.Groups += cfg.Forecast.PerfectGroupBonus
 		}
 	}
 
-	// Advancement: +Advance for each predicted advancer (a group's top 2, or
-	// one of the user's best-third picks) that actually advances.
-	best := map[string]bool{}
-	if len(thirdAggs) >= 12 { // all groups done -> best-8 fixed
-		best = bestThirdSet(thirdAggs)
-	}
+	// ---- Advance scoring (top 2 from derived groups + best derived thirds) ----
 	actualAdv := map[string]bool{}
 	for _, actual := range actualOrder {
 		if len(actual) >= 2 {
@@ -471,70 +582,72 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 			actualAdv[actual[1]] = true
 		}
 	}
-	for id := range best {
-		actualAdv[id] = true
+	bestActual := map[string]bool{}
+	if len(thirdAggs) >= 12 {
+		bestActual = bestThirdSet(thirdAggs)
+		for id := range bestActual {
+			actualAdv[id] = true
+		}
 	}
-	for g, pred := range order {
+
+	// Derive best-8 thirds from user's predicted 3rd-place teams.
+	derivedThirds := make([]teamAgg, 0, 12)
+	for _, pred := range derivedOrder {
+		if len(pred) >= 3 {
+			derivedThirds = append(derivedThirds, teamAgg{id: pred[2]})
+		}
+	}
+	derivedBestThird := map[string]bool{}
+	if len(derivedThirds) >= 8 {
+		derivedBestThird = bestThirdSet(derivedThirds)
+	}
+
+	for g, pred := range derivedOrder {
+		_ = g
 		if len(pred) >= 2 {
-			for _, pid := range []string{pred[0], pred[1]} {
+			for _, pid := range pred[:2] {
 				if actualAdv[pid] {
 					b.Advance += cfg.Forecast.Advance
 					b.AdvanceCorrect++
 				}
 			}
 		}
-		// 3rd-place pick only counts if the user chose this group as a best
-		// third.
-		if len(pred) >= 3 && thirds[g] != "" && actualAdv[pred[2]] {
+		if len(pred) >= 3 && derivedBestThird[pred[2]] && actualAdv[pred[2]] {
 			b.Advance += cfg.Forecast.Advance
 			b.AdvanceCorrect++
 		}
 	}
 
+	// ---- KO round scoring (from KO match tips, advancer field) ----
 	actualRounds, actualChamp := actualRoundTeams(app)
-	koList, _ := app.FindRecordsByFilter("matches", "stage != 'group'", "num", 0, 0)
-	koByNum := map[int]*core.Record{}
-	for _, m := range koList {
-		if n := m.GetInt("num"); n > 0 {
-			koByNum[n] = m
-		}
-	}
-	r := &fcResolver{
-		order:      order,
-		thirdByNum: assignThirds(koList, thirds),
-		bracket:    bracket,
-		ko:         koByNum,
-	}
-
-	for _, m := range koList {
+	koMatches, _ := app.FindRecordsByFilter("matches",
+		"stage != 'group' && finalizedAt != ''", "", 0, 0)
+	for _, m := range koMatches {
 		st := m.GetString("stage")
 		w := cfg.Forecast.Round[st]
 		if w == 0 {
 			continue
 		}
-		predHome := r.resolve(m.GetString("homeLabel"), m.GetInt("num"), map[int]bool{})
-		predAway := r.resolve(m.GetString("awayLabel"), m.GetInt("num"), map[int]bool{})
-		for _, pid := range []string{predHome, predAway} {
-			if pid != "" && actualRounds[st] != nil && actualRounds[st][pid] {
-				b.Knockout += w
-				b.RoundCorrect[st]++
-			}
+		tip := tipByMatch[m.Id]
+		if tip == nil {
+			continue
 		}
-	}
-
-	if actualChamp != "" {
-		var champKey string
-		for _, m := range koList {
-			if m.GetString("stage") == "FINAL" {
-				champKey = koStableKey(m)
-			}
+		adv := tip.GetString("advancer")
+		if adv == "" {
+			continue
 		}
-		if champKey != "" && bracket[champKey] == actualChamp {
+		if actualRounds[st] != nil && actualRounds[st][adv] {
+			b.Knockout += w
+			b.RoundCorrect[st]++
+		}
+		// Champion: correct advancer in the FINAL = predicted champion.
+		if st == "FINAL" && actualChamp != "" && adv == actualChamp {
 			b.Champion += cfg.Forecast.Round["CHAMPION"]
 			b.ChampionCorrect = 1
 		}
 	}
 
+	// ---- Golden boot (from forecast record) ----
 	if tournamentComplete(app) {
 		winnerID := topscorer.WinnerID(app)
 		if winnerID != "" && topscorer.PickFromForecast(fc) == winnerID {

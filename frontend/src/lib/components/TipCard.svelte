@@ -5,7 +5,8 @@
 		isLocked,
 		teamsResolved,
 		type Match,
-		type FriendTip
+		type FriendTip,
+		type Player
 	} from '$lib/tips.svelte';
 	import { vibrate } from '$lib/haptics';
 	import Flag from './Flag.svelte';
@@ -47,12 +48,34 @@
 	let etH = $state(0);
 	let etA = $state(0);
 	let pen = $state(''); // penalty winner team id
+	let firstTeam = $state('');
+	let firstPlayer = $state('');
 	let busy = $state(false);
 	let msg = $state('');
 	let savedOk = $state(false);
 	let saveToastRun = $state(0);
 	let saveToastTimer: ReturnType<typeof setTimeout> | null = null;
 	const t = $derived(strings[language.resolved]);
+
+	// Players for first-scorer pick — loaded once per match when the card is editable.
+	let players = $state<Player[]>([]);
+	let playerSearch = $state('');
+	let playerDropdownOpen = $state(false);
+	let filteredPlayers = $derived(
+		playerSearch.trim().length > 0
+			? players.filter((p) =>
+					p.name.toLowerCase().includes(playerSearch.trim().toLowerCase())
+				)
+			: players
+	);
+
+	$effect(() => {
+		if (!canEdit || !match.homeTeam || !match.awayTeam) return;
+		tipsStore
+			.playersForTeams([match.homeTeam, match.awayTeam])
+			.then((list) => (players = list))
+			.catch(() => {});
+	});
 
 	// Seed the editor from the saved tip whenever it changes.
 	$effect(() => {
@@ -62,6 +85,9 @@
 		etH = t?.etHome ?? 0;
 		etA = t?.etAway ?? 0;
 		pen = t?.penWinner ?? '';
+		firstTeam = t?.firstTeam ?? '';
+		firstPlayer = t?.firstPlayer ?? '';
+		playerSearch = t?.firstPlayer ?? '';
 	});
 
 	let ftTie = $derived(isKO && ftH === ftA);
@@ -107,7 +133,9 @@
 			(t?.ftAway ?? 0) === ftA &&
 			(t?.etHome ?? 0) === etH &&
 			(t?.etAway ?? 0) === etA &&
-			(t?.penWinner ?? '') === pen;
+			(t?.penWinner ?? '') === pen &&
+			(t?.firstTeam ?? '') === firstTeam &&
+			(t?.firstPlayer ?? '') === firstPlayer;
 		if (!unchanged) {
 			savedOk = false;
 		}
@@ -149,7 +177,9 @@
 				etHome: etH,
 				etAway: etA,
 				penWinner: pen,
-				advancer: ''
+				advancer: '',
+				firstTeam,
+				firstPlayer
 			});
 			triggerSaveFeedback();
 		} catch (e: unknown) {
@@ -358,6 +388,23 @@
 				{:else}
 						<p class="muted">{t.tipCard.noTipLocked}</p>
 				{/if}
+				{#if existing?.firstTeam || existing?.firstPlayer}
+					<div class="first-scorer-locked">
+						{#if existing.firstTeam}
+							{@const ft = tipsStore.team(existing.firstTeam)}
+							<span class="fs-label">1st team:</span>
+							<span class="fs-val">
+								{#if ft}<Flag iso2={ft.iso2} code={ft.fifaCode} />{/if}
+								{ft ? teamDisplayName(ft) : existing.firstTeam}
+							</span>
+						{/if}
+						{#if existing.firstPlayer}
+							<span class="fs-label">1st scorer:</span>
+							<span class="fs-val">{existing.firstPlayer}</span>
+						{/if}
+					</div>
+				{/if}
+
 				<button
 					class="btn secondary friendsbtn"
 					class:on={friends !== null}
@@ -491,6 +538,70 @@
 
 				{#if isKO && advancerName}
 					<p class="adv muted">{t.tipCard.goThrough}: <b>{advancerName}</b></p>
+				{/if}
+
+				<!-- First scorer picks -->
+				{#if players.length > 0 || match.homeTeam}
+					<div class="first-scorer-section">
+						<p class="phase">First team to score</p>
+						<div class="first-team-btns">
+							<button
+								class="first-team-btn"
+								class:sel={firstTeam === match.homeTeam}
+								onclick={() => { firstTeam = firstTeam === match.homeTeam ? '' : match.homeTeam; }}
+							>
+								<Flag iso2={H.iso2} code={H.code} />{H.name}
+							</button>
+							<button
+								class="first-team-btn"
+								class:sel={firstTeam === match.awayTeam}
+								onclick={() => { firstTeam = firstTeam === match.awayTeam ? '' : match.awayTeam; }}
+							>
+								<Flag iso2={A.iso2} code={A.code} />{A.name}
+							</button>
+						</div>
+						{#if players.length > 0}
+							<p class="phase" style="margin-top: 0.8rem;">First player to score</p>
+							<div class="player-picker" class:open={playerDropdownOpen}>
+								<input
+									class="player-input"
+									type="text"
+									placeholder="Search player…"
+									bind:value={playerSearch}
+									onfocus={() => (playerDropdownOpen = true)}
+									onblur={() => setTimeout(() => (playerDropdownOpen = false), 160)}
+									oninput={() => { if (playerSearch !== firstPlayer) firstPlayer = ''; }}
+								/>
+								{#if playerSearch && playerSearch === firstPlayer}
+									<button
+										class="player-clear"
+										onclick={() => { firstPlayer = ''; playerSearch = ''; }}
+										aria-label="Clear player"
+									>×</button>
+								{/if}
+								{#if playerDropdownOpen && filteredPlayers.length > 0}
+									<ul class="player-dropdown">
+										{#each filteredPlayers.slice(0, 30) as p (p.id)}
+											<li>
+												<button
+													onmousedown={(e) => e.preventDefault()}
+													onclick={() => {
+														firstPlayer = p.name;
+														playerSearch = p.name;
+														playerDropdownOpen = false;
+													}}
+													class:selected={firstPlayer === p.name}
+												>
+													<span class="p-name">{p.name}</span>
+													<span class="p-pos muted">{p.position}</span>
+												</button>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</div>
+						{/if}
+					</div>
 				{/if}
 
 				{#if msg}<p class="error">{msg}</p>{/if}
@@ -977,5 +1088,138 @@
 	}
 	.small {
 		font-size: 0.85rem;
+	}
+	.first-scorer-section {
+		margin-top: 0.6rem;
+		padding-top: 0.6rem;
+		border-top: 1px dashed var(--border);
+	}
+	.first-team-btns {
+		display: flex;
+		gap: 0.5rem;
+		margin-top: 0.4rem;
+	}
+	.first-team-btn {
+		flex: 1;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		padding: 0.55rem 0.6rem;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--border);
+		background: var(--surface-2);
+		color: var(--text);
+		font: inherit;
+		font-size: 0.85rem;
+		font-weight: 600;
+		cursor: pointer;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.first-team-btn.sel {
+		background: var(--text);
+		color: var(--bg);
+		border-color: var(--text);
+	}
+	.player-picker {
+		position: relative;
+		margin-top: 0.4rem;
+	}
+	.player-input {
+		width: 100%;
+		padding: 0.55rem 2rem 0.55rem 0.75rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--surface-2);
+		color: var(--text);
+		font: inherit;
+		font-size: 0.88rem;
+		box-sizing: border-box;
+	}
+	.player-input:focus {
+		outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+		outline-offset: -1px;
+	}
+	.player-clear {
+		position: absolute;
+		right: 0.5rem;
+		top: 50%;
+		transform: translateY(-50%);
+		background: none;
+		border: none;
+		color: var(--muted);
+		font-size: 1.1rem;
+		cursor: pointer;
+		padding: 0 0.2rem;
+		line-height: 1;
+	}
+	.player-dropdown {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: calc(100% + 2px);
+		z-index: 50;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		box-shadow: var(--shadow-pop);
+		list-style: none;
+		margin: 0;
+		padding: 0.2rem 0;
+		max-height: 220px;
+		overflow-y: auto;
+	}
+	.player-dropdown li button {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.45rem 0.75rem;
+		background: none;
+		border: none;
+		color: var(--text);
+		font: inherit;
+		font-size: 0.88rem;
+		cursor: pointer;
+		text-align: left;
+	}
+	.player-dropdown li button:hover,
+	.player-dropdown li button.selected {
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
+	}
+	.p-pos {
+		font-size: 0.72rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		flex-shrink: 0;
+	}
+	.first-scorer-locked {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.35rem 0.6rem;
+		padding: 0.5rem 0.7rem;
+		margin: 0.25rem 0 0.7rem;
+		background: var(--surface-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		font-size: 0.82rem;
+	}
+	.fs-label {
+		font-weight: 700;
+		color: var(--muted);
+		text-transform: uppercase;
+		font-size: 0.7rem;
+		letter-spacing: 0.07em;
+	}
+	.fs-val {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-weight: 600;
 	}
 </style>

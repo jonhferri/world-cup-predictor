@@ -4,7 +4,10 @@
 package seed
 
 import (
+	"bufio"
+	"bytes"
 	"embed"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -16,7 +19,7 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-//go:embed data/worldcup2026.json data/teams_meta2026.json data/tv_channels2026.json data/rankings_2026.json
+//go:embed data/worldcup2026.json data/teams_meta2026.json data/tv_channels2026.json data/rankings_2026.json data/players2026.csv
 var dataFS embed.FS
 
 type ofMatch struct {
@@ -366,16 +369,18 @@ func ApplyFIFARankings(app core.App) error {
 // correctly-predicted advancer, escalating KO rounds.
 const DefaultScoringConfig = `{
   "match": {
-    "tendency": 3,
-    "exact": 1,
-    "totalGoals": 1,
-    "goalDiff": 1
+    "tendency": 5,
+    "exact": 10,
+    "totalGoals": 5,
+    "goalDiff": 5,
+    "firstTeamScorer": 5,
+    "firstPlayerScorer": 10
   },
   "forecast": {
     "groupPosition": 1,
     "perfectGroupBonus": 2,
     "advance": 1,
-		"goldenBootWinner": 15,
+    "goldenBootWinner": 15,
     "round": { "R32": 1, "R16": 2, "QF": 3, "SF": 5, "FINAL": 8, "CHAMPION": 13 }
   },
   "tiebreakers": ["points", "exactScores", "correctWinners", "goalDiffDeviation", "fewestTips", "earliestEdit"]
@@ -408,7 +413,10 @@ func Run(app core.App) error {
 		return err
 	}
 	if n, _ := app.CountRecords("teams"); n > 0 {
-		return ApplyTVChannels(app) // already seeded
+		if err := ApplyTVChannels(app); err != nil {
+			return err
+		}
+		return SeedPlayers(app)
 	}
 
 	teamsRaw, err := dataFS.ReadFile("data/teams_meta2026.json")
@@ -509,5 +517,139 @@ func Run(app core.App) error {
 	}); err != nil {
 		return err
 	}
-	return ApplyTVChannels(app)
+	if err := ApplyTVChannels(app); err != nil {
+		return err
+	}
+	return SeedPlayers(app)
+}
+
+// csvToDBTeamName maps the Portuguese names used in players2026.csv to the
+// English team names used in the database (seeded from teams_meta2026.json).
+var csvToDBTeamName = map[string]string{
+	"Czechia":         "Czech Republic",
+	"South Korea":     "South Korea",
+	"South Africa":    "South Africa",
+	"Mexico":          "Mexico",
+	"Canadá":          "Canada",
+	"Bósnia":          "Bosnia & Herzegovina",
+	"Catar":           "Qatar",
+	"Suíça":           "Switzerland",
+	"Brasil":          "Brazil",
+	"Marrocos":        "Morocco",
+	"Haiti":           "Haiti",
+	"Escócia":         "Scotland",
+	"Estados Unidos":  "USA",
+	"Paraguai":        "Paraguay",
+	"Austrália":       "Australia",
+	"Turquia":         "Turkey",
+	"Alemanha":        "Germany",
+	"Curaçao":         "Curaçao",
+	"Costa do Marfim": "Ivory Coast",
+	"Equador":         "Ecuador",
+	"Holanda":         "Netherlands",
+	"Japão":           "Japan",
+	"Suécia":          "Sweden",
+	"Tunisia":         "Tunisia",
+	"Bélgica":         "Belgium",
+	"Egito":           "Egypt",
+	"Irão":            "Iran",
+	"Nova Zelândia":   "New Zealand",
+	"Espanha":         "Spain",
+	"Cabo Verde":      "Cape Verde",
+	"Arábia Saudita":  "Saudi Arabia",
+	"Uruguai":         "Uruguay",
+	"França":          "France",
+	"Senegal":         "Senegal",
+	"Iraque":          "Iraq",
+	"Noruega":         "Norway",
+	"Argentina":       "Argentina",
+	"Argélia":         "Algeria",
+	"Áustria":         "Austria",
+	"Jordânia":        "Jordan",
+	"Portugal":        "Portugal",
+	"Congo":           "DR Congo",
+	"Uzbequistão":     "Uzbekistan",
+	"Colombia":        "Colombia",
+	"Inglaterra":      "England",
+	"Croácia":         "Croatia",
+	"Gana":            "Ghana",
+	"Panamá":          "Panama",
+}
+
+// SeedPlayers reads players2026.csv and inserts them into the players
+// collection. Idempotent: skips if players already exist.
+func SeedPlayers(app core.App) error {
+	if n, _ := app.CountRecords("players"); n > 0 {
+		return nil
+	}
+	col, err := app.FindCollectionByNameOrId("players")
+	if err != nil {
+		return nil // players collection not yet created; skip silently
+	}
+
+	raw, err := dataFS.ReadFile("data/players2026.csv")
+	if err != nil {
+		return fmt.Errorf("read players2026.csv: %w", err)
+	}
+
+	r := csv.NewReader(bufio.NewReader(bytes.NewReader(raw)))
+	r.FieldsPerRecord = -1
+	records, err := r.ReadAll()
+	if err != nil {
+		return fmt.Errorf("parse players2026.csv: %w", err)
+	}
+	if len(records) < 2 {
+		return nil
+	}
+
+	// Build team name → team ID lookup.
+	teams, err := app.FindAllRecords("teams")
+	if err != nil {
+		return err
+	}
+	teamByName := map[string]string{}
+	for _, t := range teams {
+		teamByName[t.GetString("name")] = t.Id
+	}
+
+	// First row is the header: CSV team names (Portuguese).
+	headers := records[0]
+	// Map column index → team ID.
+	colTeam := make([]string, len(headers))
+	for i, h := range headers {
+		h = strings.TrimSpace(h)
+		dbName := csvToDBTeamName[h]
+		if dbName == "" {
+			dbName = h // fall back to the raw name
+		}
+		colTeam[i] = teamByName[dbName]
+	}
+
+	// Parse player entries: "Player Name (POS)".
+	posRe := regexp.MustCompile(`^(.*?)\s*\(([A-Z]+)\)\s*$`)
+
+	return app.RunInTransaction(func(tx core.App) error {
+		for _, row := range records[1:] {
+			for i, cell := range row {
+				cell = strings.TrimSpace(cell)
+				if cell == "" || i >= len(colTeam) || colTeam[i] == "" {
+					continue
+				}
+				name := cell
+				pos := ""
+				if m := posRe.FindStringSubmatch(cell); m != nil {
+					name = strings.TrimSpace(m[1])
+					pos = m[2]
+				}
+				rec := core.NewRecord(col)
+				rec.Set("name", name)
+				rec.Set("position", pos)
+				rec.Set("teamId", colTeam[i])
+				if err := tx.Save(rec); err != nil {
+					return fmt.Errorf("save player %q: %w", name, err)
+				}
+			}
+		}
+		return nil
+	})
 }

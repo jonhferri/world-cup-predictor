@@ -7,7 +7,7 @@
 		type="button"
 		class="btn install"
 		class:outlined={!pwa.dismissed}
-		aria-label="Installer VM Tipping"
+		aria-label="Installer Cozinhámos Predictions"
 		onclick={() => pwa.install()}
 	>
 		Installer

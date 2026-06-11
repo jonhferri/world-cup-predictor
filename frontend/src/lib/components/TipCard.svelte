@@ -600,7 +600,7 @@
 									{/if}
 									{#if playerDropdownOpen && filteredPlayers.length > 0}
 										<ul class="player-dropdown">
-											{#each filteredPlayers.slice(0, 30) as p (p.id)}
+											{#each filteredPlayers as p (p.id)}
 												<li>
 													<button
 														onmousedown={(e) => e.preventDefault()}
@@ -1205,7 +1205,7 @@
 		list-style: none;
 		margin: 2px 0 0;
 		padding: 0.15rem 0;
-		max-height: 180px;
+		max-height: 320px;
 		overflow-y: auto;
 	}
 	.player-dropdown li button {

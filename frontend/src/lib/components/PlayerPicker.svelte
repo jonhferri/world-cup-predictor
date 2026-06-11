@@ -188,7 +188,7 @@
 		list-style: none;
 		margin: 0;
 		padding: 0.15rem 0;
-		max-height: 220px;
+		max-height: 380px;
 		overflow-y: auto;
 		z-index: 50;
 	}

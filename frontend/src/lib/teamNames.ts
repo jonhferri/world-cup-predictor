@@ -1,57 +1,4 @@
-import { isRuntimeEnglish } from './runtimeLanguage';
-
-const norwegianTeamNames: Record<string, string> = {
-	MEX: 'Mexico',
-	RSA: 'Sør-Afrika',
-	KOR: 'Sør-Korea',
-	CZE: 'Tsjekkia',
-	CAN: 'Canada',
-	BIH: 'Bosnia-Hercegovina',
-	QAT: 'Qatar',
-	SUI: 'Sveits',
-	BRA: 'Brasil',
-	MAR: 'Marokko',
-	HAI: 'Haiti',
-	SCO: 'Skottland',
-	USA: 'USA',
-	PAR: 'Paraguay',
-	AUS: 'Australia',
-	TUR: 'Tyrkia',
-	GER: 'Tyskland',
-	CUW: 'Curaçao',
-	CIV: 'Elfenbenskysten',
-	ECU: 'Ecuador',
-	NED: 'Nederland',
-	JPN: 'Japan',
-	SWE: 'Sverige',
-	TUN: 'Tunisia',
-	BEL: 'Belgia',
-	EGY: 'Egypt',
-	IRN: 'Iran',
-	NZL: 'New Zealand',
-	ESP: 'Spania',
-	CPV: 'Kapp Verde',
-	KSA: 'Saudi-Arabia',
-	URU: 'Uruguay',
-	FRA: 'Frankrike',
-	SEN: 'Senegal',
-	IRQ: 'Irak',
-	NOR: 'Norge',
-	ARG: 'Argentina',
-	ALG: 'Algerie',
-	AUT: 'Østerrike',
-	JOR: 'Jordan',
-	POR: 'Portugal',
-	COD: 'DR Kongo',
-	UZB: 'Usbekistan',
-	COL: 'Colombia',
-	ENG: 'England',
-	CRO: 'Kroatia',
-	GHA: 'Ghana',
-	PAN: 'Panama'
-};
-
-const englishTeamNames: Record<string, string> = {
+const teamNames: Record<string, string> = {
 	MEX: 'Mexico',
 	RSA: 'South Africa',
 	KOR: 'South Korea',
@@ -107,6 +54,5 @@ export function teamDisplayName(
 	fallback = ''
 ) {
 	if (!team) return fallback;
-	const names = isRuntimeEnglish() ? englishTeamNames : norwegianTeamNames;
-	return (team.fifaCode && names[team.fifaCode]) || team.name || fallback;
+	return (team.fifaCode && teamNames[team.fifaCode]) || team.name || fallback;
 }

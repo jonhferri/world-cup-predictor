@@ -1,7 +1,7 @@
-export type LanguageCode = 'nb' | 'nn' | 'en';
+export type LanguageCode = 'en';
 
 export function isLanguageCode(value: unknown): value is LanguageCode {
-	return value === 'nb' || value === 'nn' || value === 'en';
+	return value === 'en';
 }
 
 class LanguageStore {
@@ -27,7 +27,6 @@ class LanguageStore {
 		return false;
 	}
 
-	// Always returns the English variant regardless of arguments.
 	text<T>(_nb: T, _nn: T, en: T): T {
 		return en;
 	}

@@ -1,5 +1,4 @@
 import { pb } from './pb';
-import { runtimeText } from './runtimeLanguage';
 
 export const CHAT_EMOJIS = ['👍', '🔥', '😂', '❤️', '👏', '😮', '😢', '⚽'];
 
@@ -42,8 +41,8 @@ type RecordEvent = {
 	record: Record<string, unknown>;
 };
 
-function chatError(nb: string, nn: string, en: string) {
-	return runtimeText(nb, nn, en);
+function chatError(_nb: string, _nn: string, en: string) {
+	return en;
 }
 
 class LeagueChatStore {

@@ -14,8 +14,10 @@ func TestIsLockedAtTournamentStartBoundary(t *testing.T) {
 		want bool
 	}{
 		{name: "before first kickoff remains editable", now: start.Add(-time.Nanosecond), want: false},
-		{name: "first kickoff locks forecast", now: start, want: true},
-		{name: "after first kickoff stays locked", now: start.Add(time.Second), want: true},
+		{name: "at first kickoff still editable", now: start, want: false},
+		{name: "just before 24h deadline still editable", now: start.Add(24*time.Hour - time.Nanosecond), want: false},
+		{name: "at 24h after first kickoff locks forecast", now: start.Add(24 * time.Hour), want: true},
+		{name: "after deadline stays locked", now: start.Add(25 * time.Hour), want: true},
 	}
 
 	for _, tc := range tests {

@@ -37,7 +37,7 @@ func locked(app core.App) bool {
 }
 
 func isLocked(now, start time.Time) bool {
-	return !now.Before(start)
+	return !now.Before(start.Add(24 * time.Hour))
 }
 
 // groupTeams returns letter -> set(teamId) from tournament_groups.

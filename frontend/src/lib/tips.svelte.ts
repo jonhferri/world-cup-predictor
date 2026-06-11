@@ -43,6 +43,7 @@ export interface Tip {
 	advancer: string;
 	firstTeam: string;
 	firstPlayer: string;
+	turbo?: boolean;
 }
 
 export interface Player {
@@ -74,6 +75,7 @@ export interface FriendTip {
 	advancer: string;
 	firstTeam: string;
 	firstPlayer: string;
+	turbo?: boolean;
 	points: number; // -1 = no tip submitted
 }
 
@@ -137,7 +139,8 @@ class TipsStore {
 				penWinner: r.penWinner,
 				advancer: r.advancer,
 				firstTeam: r.firstTeam ?? '',
-				firstPlayer: r.firstPlayer ?? ''
+				firstPlayer: r.firstPlayer ?? '',
+				turbo: r.turbo ?? false
 			};
 		this.tips = tip;
 		this.loaded = true;
@@ -157,6 +160,20 @@ class TipsStore {
 		return this.teams[id];
 	}
 
+	/** Returns the set of stage-group keys that already have a turbo tip saved.
+	 *  Group matches key on roundLabel ("Matchday 1/2/3"); KO on stage ("R32"…).
+	 *  Call from a reactive context so Svelte tracks tips + matches as deps. */
+	turboedStageGroups(): Set<string> {
+		const result = new Set<string>();
+		for (const [matchId, tip] of Object.entries(this.tips)) {
+			if (!tip.turbo) continue;
+			const m = this.matches.find((x) => x.id === matchId);
+			if (!m) continue;
+			result.add(m.stage === 'group' ? m.roundLabel : m.stage);
+		}
+		return result;
+	}
+
 	/** Save (create or update) a tip; throws with the server message on a
 	 *  rule/validation failure so the UI can show it. */
 	async save(t: Tip): Promise<void> {
@@ -171,7 +188,8 @@ class TipsStore {
 			etAway: t.etAway,
 			penWinner: t.penWinner || '',
 			firstTeam: t.firstTeam || '',
-			firstPlayer: t.firstPlayer || ''
+			firstPlayer: t.firstPlayer || '',
+			turbo: t.turbo ?? false
 		};
 		let rec;
 		if (t.id) {
@@ -200,7 +218,8 @@ class TipsStore {
 			penWinner: rec.penWinner,
 			advancer: rec.advancer,
 			firstTeam: rec.firstTeam ?? '',
-			firstPlayer: rec.firstPlayer ?? ''
+			firstPlayer: rec.firstPlayer ?? '',
+			turbo: rec.turbo ?? false
 		};
 	}
 

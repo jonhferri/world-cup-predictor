@@ -11,7 +11,6 @@
 	import { vibrate } from '$lib/haptics';
 	import Flag from './Flag.svelte';
 	import Stepper from './Stepper.svelte';
-	import TvLogo from './TvLogo.svelte';
 	import { teamDisplayName } from '$lib/teamNames';
 	import { Lock, ChevronDown, Check, Users } from '@lucide/svelte';
 	import { language } from '$lib/language.svelte';
@@ -42,6 +41,10 @@
 		isKO && match.advancer ? teamDisplayName(tipsStore.team(match.advancer)) : ''
 	);
 
+	// Turbo state.
+	let stageGroupKey = $derived(match.stage === 'group' ? match.roundLabel : match.stage);
+	let isAutoTurbo = $derived(match.stage === 'FINAL' || match.stage === '3RD');
+
 	// Editable working copy.
 	let ftH = $state(0);
 	let ftA = $state(0);
@@ -50,6 +53,7 @@
 	let pen = $state(''); // penalty winner team id
 	let firstTeam = $state('');
 	let firstPlayer = $state('');
+	let turbo = $state(false);
 	let busy = $state(false);
 	let msg = $state('');
 	let savedOk = $state(false);
@@ -88,6 +92,7 @@
 		firstTeam = t?.firstTeam ?? '';
 		firstPlayer = t?.firstPlayer ?? '';
 		playerSearch = t?.firstPlayer ?? '';
+		turbo = t?.turbo ?? false;
 	});
 
 	let ftTie = $derived(isKO && ftH === ftA);
@@ -135,7 +140,8 @@
 			(t?.etAway ?? 0) === etA &&
 			(t?.penWinner ?? '') === pen &&
 			(t?.firstTeam ?? '') === firstTeam &&
-			(t?.firstPlayer ?? '') === firstPlayer;
+			(t?.firstPlayer ?? '') === firstPlayer &&
+			(t?.turbo ?? false) === turbo;
 		if (!unchanged) {
 			savedOk = false;
 		}
@@ -179,7 +185,8 @@
 				penWinner: pen,
 				advancer: '',
 				firstTeam,
-				firstPlayer
+				firstPlayer,
+				turbo
 			});
 			triggerSaveFeedback();
 		} catch (e: unknown) {
@@ -315,8 +322,17 @@
 					: match.roundLabel} · {kickoff}</span
 			>
 			<span class="spacer"></span>
-			{#if match.tvChannel}
-				<TvLogo channel={match.tvChannel} compact />
+			{#if isAutoTurbo}
+				<span class="turbo-pill auto" title="Match automatically doubled">⚡ 2×</span>
+			{:else if existing?.turbo}
+				<span class="turbo-pill on" title="Turbo active – points doubled">⚡ 2×</span>
+			{:else if !locked && !tipsStore.turboedStageGroups().has(stageGroupKey)}
+				<button
+					class="turbo-btn"
+					class:on={turbo}
+					onclick={() => { if (!existing?.turbo) turbo = !turbo; }}
+					title={turbo ? 'Turbo applied – save to confirm' : 'Use 2× turbo on this match'}
+				>⚡</button>
 			{/if}
 			{#if played}
 				<span class="pill done" class:perfect={pts === 6}>
@@ -1242,5 +1258,57 @@
 		align-items: center;
 		gap: 0.3rem;
 		font-weight: 600;
+	}
+	.turbo-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 50%;
+		border: 1px solid var(--border);
+		background: var(--surface-2);
+		color: var(--muted);
+		font-size: 0.85rem;
+		cursor: pointer;
+		padding: 0;
+		line-height: 1;
+		transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+		flex-shrink: 0;
+	}
+	.turbo-btn:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.turbo-btn.on {
+		background: color-mix(in srgb, var(--accent) 18%, var(--surface-2));
+		border-color: var(--accent);
+		color: var(--accent);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent);
+	}
+	.turbo-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.2rem;
+		padding: 0.15rem 0.45rem;
+		border-radius: var(--radius-pill);
+		border: 1px solid var(--border);
+		background: var(--surface-2);
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		color: var(--muted);
+		flex-shrink: 0;
+	}
+	.turbo-pill.on {
+		border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+		background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+		color: var(--accent);
+		box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 25%, transparent);
+	}
+	.turbo-pill.auto {
+		border-color: color-mix(in srgb, var(--gold) 50%, var(--border));
+		background: color-mix(in srgb, var(--gold) 10%, var(--surface-2));
+		color: var(--gold);
 	}
 </style>

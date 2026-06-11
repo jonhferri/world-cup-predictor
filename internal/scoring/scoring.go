@@ -91,18 +91,22 @@ func sign(n int) int {
 // ---- Match (Tip) scoring ----
 
 type tipComponents struct {
-	Tendency          int `json:"tendency"` // correct result / who advances
-	Exact             int `json:"exact"`
-	TotalGoals        int `json:"totalGoals"`
-	GoalDiff          int `json:"goalDiff"`
-	GdDev             int `json:"gdDev"` // |predicted GD - actual GD| (tiebreaker only)
-	FirstTeamScorer   int `json:"firstTeamScorer"`
-	FirstPlayerScorer int `json:"firstPlayerScorer"`
+	Tendency          int  `json:"tendency"` // correct result / who advances
+	Exact             int  `json:"exact"`
+	TotalGoals        int  `json:"totalGoals"`
+	GoalDiff          int  `json:"goalDiff"`
+	GdDev             int  `json:"gdDev"` // |predicted GD - actual GD| (tiebreaker only)
+	FirstTeamScorer   int  `json:"firstTeamScorer"`
+	FirstPlayerScorer int  `json:"firstPlayerScorer"`
+	Turbo             bool `json:"turbo"` // points doubled (user turbo or FINAL/3RD auto)
 }
 
-// points — max 6 per game (3+1+1+1) plus optional first-scorer bonuses.
 func (c tipComponents) points() int {
-	return c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff + c.FirstTeamScorer + c.FirstPlayerScorer
+	base := c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff + c.FirstTeamScorer + c.FirstPlayerScorer
+	if c.Turbo {
+		return base * 2
+	}
+	return base
 }
 
 // MatchResult / TipPrediction are the plain inputs to the pure scorer, so the
@@ -181,7 +185,7 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 }
 
 func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
-	return scoreValues(cfg,
+	r := scoreValues(cfg,
 		MatchResult{
 			Stage:             match.GetString("stage"),
 			FtH:               match.GetInt("ftHome"),
@@ -202,6 +206,9 @@ func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
 			FirstPlayer: tip.GetString("firstPlayer"),
 		},
 	)
+	stage := match.GetString("stage")
+	r.Turbo = tip.GetBool("turbo") || stage == "FINAL" || stage == "3RD"
+	return r
 }
 
 // ---- Group standings (final, from finalized group matches) ----

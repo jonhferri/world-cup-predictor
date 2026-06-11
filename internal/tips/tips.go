@@ -7,7 +7,9 @@
 package tips
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -36,6 +38,61 @@ var bypass atomic.Bool
 // SetBypass toggles the dev-only validation bypass.
 func SetBypass(b bool) { bypass.Store(b) }
 
+// validateTurbo enforces the turbo rules:
+//   - turbo cannot be unset once applied (immutable after first save)
+//   - max 1 turbo per stage-group (matchday for group stage; round for KO)
+//   - FINAL and 3RD are auto-doubled in scoring — turbo flag rejected for them
+func validateTurbo(app core.App, tip *core.Record, match *core.Record) error {
+	stage := match.GetString("stage")
+
+	// Prevent unsetting turbo once applied.
+	if tip.Id != "" && !tip.GetBool("turbo") {
+		if old, err := app.FindRecordById("tips", tip.Id); err == nil && old.GetBool("turbo") {
+			return apis.NewBadRequestError("turbo cannot be removed once applied", nil)
+		}
+	}
+
+	if !tip.GetBool("turbo") {
+		return nil
+	}
+
+	// FINAL and 3RD are automatically doubled in scoring; no user turbo needed.
+	if stage == "FINAL" || stage == "3RD" {
+		tip.Set("turbo", false)
+		return nil
+	}
+
+	userID := tip.GetString("user")
+
+	// Find sibling matches in the same stage group.
+	var matchFilter string
+	var filterParams map[string]any
+	if stage == "group" {
+		rl := match.GetString("roundLabel")
+		matchFilter = `roundLabel = {:rl} && id != {:mid}`
+		filterParams = map[string]any{"rl": rl, "mid": match.Id}
+	} else {
+		matchFilter = `stage = {:s} && id != {:mid}`
+		filterParams = map[string]any{"s": stage, "mid": match.Id}
+	}
+	siblings, _ := app.FindRecordsByFilter("matches", matchFilter, "", 0, 0, filterParams)
+	if len(siblings) == 0 {
+		return nil
+	}
+
+	// Build a single OR filter to check whether any sibling already has turbo.
+	parts := make([]string, len(siblings))
+	for i, gm := range siblings {
+		parts[i] = fmt.Sprintf(`match = "%s"`, gm.Id)
+	}
+	filter := fmt.Sprintf(`user = {:u} && turbo = true && (%s)`, strings.Join(parts, " || "))
+	existing, _ := app.FindFirstRecordByFilter("tips", filter, map[string]any{"u": userID})
+	if existing != nil {
+		return apis.NewBadRequestError("turbo already used in this round", nil)
+	}
+	return nil
+}
+
 // validateAndDerive applies lock + validation and sets the derived advancer.
 func validateAndDerive(app core.App, tip *core.Record) error {
 	if bypass.Load() {
@@ -56,6 +113,10 @@ func validateAndDerive(app core.App, tip *core.Record) error {
 	}
 	if ftH < 0 || ftA < 0 || ftH > 99 || ftA > 99 {
 		return apis.NewBadRequestError("scores out of range", nil)
+	}
+
+	if err := validateTurbo(app, tip, match); err != nil {
+		return err
 	}
 
 	if match.GetString("stage") == "group" {

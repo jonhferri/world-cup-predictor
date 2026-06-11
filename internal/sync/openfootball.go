@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -24,13 +25,52 @@ type ofScore struct {
 	ET []int `json:"et"`
 	P  []int `json:"p"`
 }
+type ofGoal struct {
+	Name   string `json:"name"`
+	Minute int    `json:"minute"`
+	Offset int    `json:"offset"`
+}
 type ofLiveMatch struct {
-	Round string   `json:"round"`
-	Num   int      `json:"num"`
-	Team1 string   `json:"team1"`
-	Team2 string   `json:"team2"`
-	Group string   `json:"group"`
-	Score *ofScore `json:"score"`
+	Round  string   `json:"round"`
+	Num    int      `json:"num"`
+	Team1  string   `json:"team1"`
+	Team2  string   `json:"team2"`
+	Group  string   `json:"group"`
+	Score  *ofScore `json:"score"`
+	Goals1 []ofGoal `json:"goals1"`
+	Goals2 []ofGoal `json:"goals2"`
+}
+
+// firstScorerFromGoals returns the PocketBase team record ID and player name
+// of the first goal in the match. Returns ("","") when no goal data is present.
+func firstScorerFromGoals(m ofLiveMatch, rec *core.Record) (teamID, playerName string) {
+	type candidate struct {
+		name   string
+		minute int
+		offset int
+		home   bool
+	}
+	var goals []candidate
+	for _, g := range m.Goals1 {
+		goals = append(goals, candidate{g.Name, g.Minute, g.Offset, true})
+	}
+	for _, g := range m.Goals2 {
+		goals = append(goals, candidate{g.Name, g.Minute, g.Offset, false})
+	}
+	if len(goals) == 0 {
+		return "", ""
+	}
+	sort.Slice(goals, func(i, j int) bool {
+		if goals[i].minute != goals[j].minute {
+			return goals[i].minute < goals[j].minute
+		}
+		return goals[i].offset < goals[j].offset
+	})
+	first := goals[0]
+	if first.home {
+		return rec.GetString("homeTeam"), first.name
+	}
+	return rec.GetString("awayTeam"), first.name
 }
 
 func pi(v int) *int { return &v }
@@ -84,14 +124,23 @@ func openfootballSync(ctx context.Context, app core.App) error {
 		if len(m.Score.P) == 2 {
 			penH, penA = pi(m.Score.P[0]), pi(m.Score.P[1])
 		}
+		firstTeamID, firstPlayerName := firstScorerFromGoals(m, rec)
 		// Skip if nothing changed (avoids needless recompute storms).
 		if rec.GetString("status") == "finished" &&
 			rec.GetInt("ftHome") == ftH && rec.GetInt("ftAway") == ftA &&
 			rec.GetInt("penHome") == ip(penH) && rec.GetInt("penAway") == ip(penA) &&
-			rec.GetInt("etHome") == ip(etH) && rec.GetInt("etAway") == ip(etA) {
+			rec.GetInt("etHome") == ip(etH) && rec.GetInt("etAway") == ip(etA) &&
+			(firstTeamID == "" || rec.GetString("firstTeamScorer") == firstTeamID) &&
+			(firstPlayerName == "" || rec.GetString("firstPlayerScorer") == firstPlayerName) {
 			continue
 		}
 		applyResult(rec, "finished", pi(ftH), pi(ftA), etH, etA, penH, penA)
+		if firstTeamID != "" {
+			rec.Set("firstTeamScorer", firstTeamID)
+		}
+		if firstPlayerName != "" {
+			rec.Set("firstPlayerScorer", firstPlayerName)
+		}
 		if app.Save(rec) == nil {
 			updated++
 		}

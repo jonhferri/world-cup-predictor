@@ -1,6 +1,6 @@
 import { pb } from './pb';
 import { auth } from './auth.svelte';
-import { tipsStore, type Team, type Match } from './tips.svelte';
+import { tipsStore, type Team, type Match, type Player } from './tips.svelte';
 
 export interface KOMatch {
 	num: number;
@@ -61,7 +61,17 @@ export class ForecastStore {
 	groupOrder = $state<Record<string, string[]>>({}); // letter -> [id x4]
 	thirds = $state<Record<string, string>>({}); // matchNum -> teamId
 	bracket = $state<Record<string, string>>({}); // koKey -> winner teamId
-	goldenBootPlayer = $state('');
+	goldenBootPlayer = $state(''); // legacy ID-based; kept for backward compat
+	goldenBootName = $state('');    // player name (new style)
+	goldenBallPlayer = $state('');
+	goldenGlovePlayer = $state('');
+	bestYoungPlayer = $state('');
+	mostAssistsPlayer = $state('');
+
+	// All tournament players (loaded on demand for award pickers).
+	allPlayers = $state<Player[]>([]);
+	private allPlayersPromise: Promise<void> | null = null;
+
 	private loadPromise: Promise<void> | null = null;
 
 	// Actual results, for post-stage correctness indicators.
@@ -162,6 +172,11 @@ export class ForecastStore {
 		this.thirds = f?.thirdQualifiers ?? {};
 		this.bracket = f?.bracket ?? {};
 		this.goldenBootPlayer = f?.goldenBootPlayer ?? f?.goldenBootPicks?.[0] ?? '';
+		this.goldenBootName = (f as any)?.goldenBootPlayerName ?? '';
+		this.goldenBallPlayer = (f as any)?.goldenBallPlayer ?? '';
+		this.goldenGlovePlayer = (f as any)?.goldenGlovePlayer ?? '';
+		this.bestYoungPlayer = (f as any)?.bestYoungPlayer ?? '';
+		this.mostAssistsPlayer = (f as any)?.mostAssistsPlayer ?? '';
 	}
 
 	async load() {
@@ -171,6 +186,26 @@ export class ForecastStore {
 			this.loadPromise = null;
 		});
 		return this.loadPromise;
+	}
+
+	async loadAllPlayers() {
+		if (this.allPlayers.length > 0) return;
+		if (this.allPlayersPromise) return this.allPlayersPromise;
+		this.allPlayersPromise = pb
+			.collection('players')
+			.getFullList({ sort: 'name' })
+			.then((rows) => {
+				this.allPlayers = rows.map((r) => ({
+					id: r.id,
+					name: r.name,
+					position: r.position,
+					teamId: r.teamId
+				}));
+			})
+			.finally(() => {
+				this.allPlayersPromise = null;
+			});
+		return this.allPlayersPromise;
 	}
 
 	private async loadInner() {
@@ -406,7 +441,12 @@ export class ForecastStore {
 			thirdQualifiers,
 			bracket: this.bracket,
 			goldenBootPicks: this.goldenBootPlayer ? [this.goldenBootPlayer] : [],
-			goldenBootPlayer: this.goldenBootPlayer
+			goldenBootPlayer: this.goldenBootPlayer,
+			goldenBootPlayerName: this.goldenBootName,
+			goldenBallPlayer: this.goldenBallPlayer,
+			goldenGlovePlayer: this.goldenGlovePlayer,
+			bestYoungPlayer: this.bestYoungPlayer,
+			mostAssistsPlayer: this.mostAssistsPlayer
 		};
 		const rec = this.recId
 			? await pb.collection('forecasts').update(this.recId, data)

@@ -580,6 +580,14 @@ func WinnerID(app core.App) string {
 	return records[0].Id
 }
 
+func WinnerName(app core.App) string {
+	records, err := app.FindRecordsByFilter(collectionName, "rank = 1", "rank", 1, 0)
+	if err != nil || len(records) == 0 {
+		return ""
+	}
+	return records[0].GetString("name")
+}
+
 func view(app core.App, record *core.Record) Player {
 	teamID := record.GetString("team")
 	teamName := ""

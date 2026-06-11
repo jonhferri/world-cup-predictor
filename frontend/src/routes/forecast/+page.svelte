@@ -1,24 +1,36 @@
 <script lang="ts">
 	import DeadlineCountdown from '$lib/components/DeadlineCountdown.svelte';
-	import { api, type GoldenBootSearchResult } from '$lib/api';
-	import { forecastStore as fs, type GoldenBootPlayer } from '$lib/forecast.svelte';
+	import { forecastStore as fs } from '$lib/forecast.svelte';
+	import { tipsStore } from '$lib/tips.svelte';
 	import Flag from '$lib/components/Flag.svelte';
-	import { vibrate } from '$lib/haptics';
-	import { teamDisplayName } from '$lib/teamNames';
-	import { Lock, Check, Trophy } from '@lucide/svelte';
+	import PlayerPicker from '$lib/components/PlayerPicker.svelte';
+	import { Lock, Check } from '@lucide/svelte';
 	import { collapseOnScroll } from '$lib/actions';
 	import { language } from '$lib/language.svelte';
 
 	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 	let err = $state('');
+
 	$effect(() => {
-		if (!fs.loaded) fs.load().catch((e) => (err = e?.message ?? 'Load failed'));
+		if (!fs.loaded) {
+			fs.load()
+				.then(() => fs.loadAllPlayers())
+				.catch((e) => (err = e?.message ?? 'Load failed'));
+		} else if (fs.allPlayers.length === 0) {
+			fs.loadAllPlayers().catch(() => {});
+		}
 	});
 
 	let primed = false;
 	let timer: ReturnType<typeof setTimeout>;
 	$effect(() => {
-		const snapshot = JSON.stringify([fs.goldenBootPlayer]);
+		const snapshot = JSON.stringify([
+			fs.goldenBootName,
+			fs.goldenBallPlayer,
+			fs.goldenGlovePlayer,
+			fs.bestYoungPlayer,
+			fs.mostAssistsPlayer
+		]);
 		if (!fs.loaded || fs.locked) return;
 		if (!primed) {
 			primed = true;
@@ -40,73 +52,6 @@
 		return () => clearTimeout(timer);
 	});
 
-	let goldenBootById = $derived.by(() => {
-		const out: Record<string, GoldenBootPlayer> = {};
-		for (const player of [...fs.goldenBoot.shortlist, ...fs.goldenBoot.leaders]) out[player.id] = player;
-		return out;
-	});
-	let goldenBootPick = $derived(goldenBootById[fs.goldenBootPlayer]);
-	let goldenBootLeaders = $derived(
-		fs.goldenBoot.leaders.length > 0 ? fs.goldenBoot.leaders : fs.goldenBoot.shortlist.slice(0, 10)
-	);
-	let goldenBootSearchQuery = $state('');
-	let goldenBootSearchResults = $state<GoldenBootSearchResult[]>([]);
-	let goldenBootSearchLoading = $state(false);
-	let goldenBootSearchError = $state('');
-	let goldenBootSearchPendingKey = $state('');
-	let goldenBootSearchApiAvailable = $state(true);
-	let goldenBootSearchTimer: ReturnType<typeof setTimeout>;
-
-	$effect(() => {
-		const query = goldenBootSearchQuery.trim();
-		if (fs.locked) {
-			goldenBootSearchLoading = false;
-			goldenBootSearchError = '';
-			return;
-		}
-		if (query.length < 2) {
-			goldenBootSearchResults = [];
-			goldenBootSearchLoading = false;
-			goldenBootSearchError = '';
-			return;
-		}
-
-		let cancelled = false;
-		clearTimeout(goldenBootSearchTimer);
-		goldenBootSearchTimer = setTimeout(async () => {
-			goldenBootSearchLoading = true;
-			goldenBootSearchError = '';
-			try {
-				const response = await api.searchGoldenBootPlayers(query);
-				if (cancelled) return;
-				goldenBootSearchResults = response.players;
-				goldenBootSearchApiAvailable = response.apiAvailable;
-			} catch (e: unknown) {
-				if (cancelled) return;
-				goldenBootSearchResults = [];
-				goldenBootSearchError = (e as { message?: string })?.message ?? 'Could not search players.';
-			} finally {
-				if (!cancelled) goldenBootSearchLoading = false;
-			}
-		}, 280);
-
-		return () => {
-			cancelled = true;
-			clearTimeout(goldenBootSearchTimer);
-		};
-	});
-
-	function tname(id: string) {
-		return teamDisplayName(fs.team(id));
-	}
-	function initials(name: string) {
-		return name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((part) => part[0]?.toUpperCase() ?? '')
-			.join('');
-	}
 	function updatedAt(iso?: string) {
 		if (!iso) return 'Not synced yet';
 		const date = new Date(iso);
@@ -118,87 +63,32 @@
 			minute: '2-digit'
 		}).format(date);
 	}
-	function pickGoldenBoot(playerId: string) {
-		if (fs.locked) return;
-		fs.goldenBootPlayer = playerId;
-		vibrate(15);
+
+	function initials(name: string) {
+		return name
+			.split(/\s+/)
+			.filter(Boolean)
+			.slice(0, 2)
+			.map((part) => part[0]?.toUpperCase() ?? '')
+			.join('');
 	}
-	function sortGoldenBootPlayers(players: GoldenBootPlayer[]) {
-		return [...players].sort((first, second) => {
-			const firstRank = first.rank ?? 0;
-			const secondRank = second.rank ?? 0;
-			if ((firstRank === 0) !== (secondRank === 0)) return firstRank !== 0 ? -1 : 1;
-			if (firstRank !== 0 && secondRank !== 0 && firstRank !== secondRank) return firstRank - secondRank;
-			if (first.goals !== second.goals) return second.goals - first.goals;
-			return first.name.localeCompare(second.name);
-		});
-	}
-	function searchResultToPlayer(player: GoldenBootSearchResult): GoldenBootPlayer {
-		return {
-			id: player.id ?? '',
-			name: player.name,
-			teamId: player.teamId,
-			teamName: player.teamName,
-			photoUrl: player.photoUrl,
-			goals: player.goals,
-			assists: player.assists,
-			rank: player.rank,
-			eligible: player.eligible,
-			seeded: false,
-			syncedAt: fs.goldenBoot.updatedAt
-		};
-	}
-	function upsertGoldenBootCandidate(player: GoldenBootPlayer) {
-		const shortlist = sortGoldenBootPlayers([
-			...fs.goldenBoot.shortlist.filter((current) => current.id !== player.id),
-			player
-		]);
-		const shouldShowLeader =
-			player.rank > 0 || fs.goldenBoot.leaders.some((current) => current.id === player.id);
-		const leaders = shouldShowLeader
-			? sortGoldenBootPlayers([
-					...fs.goldenBoot.leaders.filter((current) => current.id !== player.id),
-					player
-				]).slice(0, 10)
-			: fs.goldenBoot.leaders;
-		fs.goldenBoot = {
-			...fs.goldenBoot,
-			shortlist,
-			leaders,
-			updatedAt: player.syncedAt || fs.goldenBoot.updatedAt
-		};
-	}
-	async function chooseGoldenBootSearch(player: GoldenBootSearchResult) {
-		if (fs.locked) return;
-		goldenBootSearchPendingKey = player.key;
-		goldenBootSearchError = '';
-		try {
-			const chosen =
-				player.id && player.eligible
-					? searchResultToPlayer(player)
-					: (await api.ensureGoldenBootPlayer(player)).player;
-			upsertGoldenBootCandidate(chosen);
-			pickGoldenBoot(chosen.id);
-			goldenBootSearchQuery = '';
-			goldenBootSearchResults = [];
-		} catch (e: unknown) {
-			goldenBootSearchError =
-				(e as { message?: string })?.message ?? 'Could not add this player.';
-		} finally {
-			goldenBootSearchPendingKey = '';
-		}
-	}
+
+	let goldenBootLeaders = $derived(
+		fs.goldenBoot.leaders.length > 0 ? fs.goldenBoot.leaders : fs.goldenBoot.shortlist.slice(0, 10)
+	);
+
+	let gkPlayers = $derived(fs.allPlayers.filter((p) => p.position === 'GK'));
 </script>
 
 <div class="stickyhead" use:collapseOnScroll>
 	<p class="kicker">Whole tournament</p>
 	<div class="sh-expand">
 		<div class="sh-inner">
-			<h1>Golden Boot</h1>
+			<h1>Tournament Awards</h1>
 			<p class="muted desc">
-				Pick your Golden Boot winner. Group standings and the bracket are auto-derived from your
-				match tips.
-				{#if fs.locked}<b>Locked.</b>{:else}Locks at kickoff.{/if}
+				Pick the award winners. Group standings and the bracket are auto-derived from your match
+				tips.
+				{#if fs.locked}<b>Locked.</b>{:else}Locks at tournament kickoff.{/if}
 			</p>
 			{#if !fs.locked && fs.tournamentStart}
 				<DeadlineCountdown deadline={fs.tournamentStart} label="Locks" compact />
@@ -214,205 +104,161 @@
 {:else}
 	{#if fs.locked}
 		<div class="card lockbar">
-			<Lock size={16} /> The tournament has started — the Golden Boot pick is final.
+			<Lock size={16} /> The tournament has started — award picks are final.
 		</div>
 	{/if}
 
-	<div class="gb-head">
-		<p class="muted small">
-			Pick a player or search for an outsider. A correct pick gives 15 points.
-		</p>
-		{#if fs.goldenBoot.updatedAt}
-			<span class="cnt">Updated {updatedAt(fs.goldenBoot.updatedAt)}</span>
+	<!-- Golden Boot -->
+	<section class="card award-card">
+		<div class="award-head">
+			<span class="award-icon" aria-hidden="true">⚽</span>
+			<div>
+				<h3>Golden Boot</h3>
+				<p class="muted small">Most goals scored in the tournament.</p>
+			</div>
+			{#if fs.goldenBootName}<span class="award-check"><Check size={16} /></span>{/if}
+		</div>
+		{#if fs.locked}
+			{@render lockedPick(fs.goldenBootName, fs.allPlayers)}
+		{:else if fs.allPlayers.length === 0}
+			<p class="muted small">Loading players…</p>
+		{:else}
+			<PlayerPicker players={fs.allPlayers} bind:value={fs.goldenBootName} locked={fs.locked} placeholder="Search Golden Boot candidate…" />
 		{/if}
-	</div>
+	</section>
 
-	{#if goldenBootPick}
-		<section class="card gb-pick">
-			<Trophy size={20} />
-			<span class="headshot-wrap">
-				{#if goldenBootPick.photoUrl}
-					<img class="headshot" src={goldenBootPick.photoUrl} alt="" loading="lazy" />
-				{:else}
-					<span class="headshot fallback">{initials(goldenBootPick.name)}</span>
-				{/if}
-			</span>
-			<span class="gb-main">
-				<i>Your Golden Boot pick</i>
-				<b>{goldenBootPick.name}</b>
-			</span>
-			<Flag
-				iso2={fs.team(goldenBootPick.teamId)?.iso2 ?? ''}
-				code={fs.team(goldenBootPick.teamId)?.fifaCode ?? ''}
+	<!-- Golden Ball -->
+	<section class="card award-card">
+		<div class="award-head">
+			<span class="award-icon" aria-hidden="true">🏆</span>
+			<div>
+				<h3>Golden Ball</h3>
+				<p class="muted small">Best overall player of the tournament.</p>
+			</div>
+			{#if fs.goldenBallPlayer}<span class="award-check"><Check size={16} /></span>{/if}
+		</div>
+		{#if fs.locked}
+			{@render lockedPick(fs.goldenBallPlayer, fs.allPlayers)}
+		{:else if fs.allPlayers.length === 0}
+			<p class="muted small">Loading players…</p>
+		{:else}
+			<PlayerPicker players={fs.allPlayers} bind:value={fs.goldenBallPlayer} locked={fs.locked} placeholder="Search Golden Ball candidate…" />
+		{/if}
+	</section>
+
+	<!-- Golden Glove -->
+	<section class="card award-card">
+		<div class="award-head">
+			<span class="award-icon" aria-hidden="true">🧤</span>
+			<div>
+				<h3>Golden Glove</h3>
+				<p class="muted small">Best goalkeeper of the tournament.</p>
+			</div>
+			{#if fs.goldenGlovePlayer}<span class="award-check"><Check size={16} /></span>{/if}
+		</div>
+		{#if fs.locked}
+			{@render lockedPick(fs.goldenGlovePlayer, gkPlayers.length > 0 ? gkPlayers : fs.allPlayers)}
+		{:else if fs.allPlayers.length === 0}
+			<p class="muted small">Loading players…</p>
+		{:else}
+			<PlayerPicker
+				players={gkPlayers.length > 0 ? gkPlayers : fs.allPlayers}
+				bind:value={fs.goldenGlovePlayer}
+				locked={fs.locked}
+				placeholder="Search goalkeeper…"
 			/>
+		{/if}
+	</section>
+
+	<!-- Best Young Player -->
+	<section class="card award-card">
+		<div class="award-head">
+			<span class="award-icon" aria-hidden="true">⭐</span>
+			<div>
+				<h3>Best Young Player</h3>
+				<p class="muted small">Best player born on or after January 1, 2004 (under 21).</p>
+			</div>
+			{#if fs.bestYoungPlayer}<span class="award-check"><Check size={16} /></span>{/if}
+		</div>
+		{#if fs.locked}
+			{@render lockedPick(fs.bestYoungPlayer, fs.allPlayers)}
+		{:else if fs.allPlayers.length === 0}
+			<p class="muted small">Loading players…</p>
+		{:else}
+			<PlayerPicker players={fs.allPlayers} bind:value={fs.bestYoungPlayer} locked={fs.locked} placeholder="Search young player…" />
+		{/if}
+	</section>
+
+	<!-- Most Assists -->
+	<section class="card award-card">
+		<div class="award-head">
+			<span class="award-icon" aria-hidden="true">🎯</span>
+			<div>
+				<h3>Most Assists</h3>
+				<p class="muted small">Player with the most assists in the tournament.</p>
+			</div>
+			{#if fs.mostAssistsPlayer}<span class="award-check"><Check size={16} /></span>{/if}
+		</div>
+		{#if fs.locked}
+			{@render lockedPick(fs.mostAssistsPlayer, fs.allPlayers)}
+		{:else if fs.allPlayers.length === 0}
+			<p class="muted small">Loading players…</p>
+		{:else}
+			<PlayerPicker players={fs.allPlayers} bind:value={fs.mostAssistsPlayer} locked={fs.locked} placeholder="Search assists leader…" />
+		{/if}
+	</section>
+
+	<!-- Live top scorers (for reference) -->
+	{#if goldenBootLeaders.length > 0}
+		<section class="card gb-live">
+			<div class="gb-live-head">
+				<h3>Top scorers</h3>
+				{#if fs.goldenBoot.updatedAt}
+					<p class="muted small gb-updated">Updated {updatedAt(fs.goldenBoot.updatedAt)}</p>
+				{/if}
+			</div>
+			<table class="gb-table">
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>Player</th>
+						<th>Team</th>
+						<th class="num">Goals</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each goldenBootLeaders as player (player.id)}
+						<tr>
+							<td>{player.rank || '–'}</td>
+							<td>
+								<span class="gb-row-player">
+									{#if player.photoUrl}
+										<img class="mini-headshot" src={player.photoUrl} alt="" loading="lazy" />
+									{:else}
+										<span class="mini-headshot fallback">{initials(player.name)}</span>
+									{/if}
+									<b>{player.name}</b>
+								</span>
+							</td>
+							<td>
+								<span class="gb-team">
+									<Flag
+										iso2={fs.team(player.teamId)?.iso2 ?? ''}
+										code={fs.team(player.teamId)?.fifaCode ?? ''}
+									/>
+									<span class="tm-full">{player.teamName}</span>
+									<span class="tm-short"
+										>{fs.team(player.teamId)?.fifaCode ?? player.teamName}</span
+									>
+								</span>
+							</td>
+							<td class="num digits">{player.goals}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
 		</section>
 	{/if}
-
-	<section class="card gb-search">
-		<div class="gb-search-head">
-			<div>
-				<h3>Search more players</h3>
-				<p class="muted small">Add an outsider if they are not in the shortlist.</p>
-			</div>
-			{#if !goldenBootSearchApiAvailable}
-				<span class="muted small api-note">Live API search unavailable</span>
-			{/if}
-		</div>
-		<input
-			class="gb-search-input"
-			type="search"
-			bind:value={goldenBootSearchQuery}
-			placeholder="Search by player name…"
-			aria-label="Search for a Golden Boot player"
-			disabled={fs.locked}
-		/>
-
-		{#if goldenBootSearchError}
-			<p class="error small">{goldenBootSearchError}</p>
-		{:else if goldenBootSearchQuery.trim().length < 2}
-			<p class="muted small">Type to search...</p>
-		{:else if goldenBootSearchLoading}
-			<p class="muted small">Searching…</p>
-		{:else if goldenBootSearchResults.length === 0}
-			<p class="muted small">
-				{goldenBootSearchApiAvailable
-					? 'No matching World Cup candidates found.'
-					: 'No local candidates matched, and live API search is unavailable.'}
-			</p>
-		{:else}
-			<div class="gb-search-results">
-				{#each goldenBootSearchResults as player (player.key)}
-					<button
-						class="gb-search-result"
-						class:picked={fs.goldenBootPlayer === (player.id ?? '')}
-						disabled={fs.locked ||
-							(goldenBootSearchPendingKey !== '' &&
-								goldenBootSearchPendingKey !== player.key)}
-						onclick={() => chooseGoldenBootSearch(player)}
-					>
-						<span class="headshot-wrap">
-							{#if player.photoUrl}
-								<img class="headshot" src={player.photoUrl} alt="" loading="lazy" />
-							{:else}
-								<span class="headshot fallback">{initials(player.name)}</span>
-							{/if}
-						</span>
-						<span class="gb-main">
-							<b>{player.name}</b>
-							<span class="gb-search-meta">
-								<Flag
-									iso2={fs.team(player.teamId)?.iso2 ?? ''}
-									code={fs.team(player.teamId)?.fifaCode ?? ''}
-								/>
-								<span>{player.teamName}</span>
-								<span>·</span>
-								<span>Goals {player.goals}</span>
-							</span>
-						</span>
-						<span class="gb-search-action">
-							{#if goldenBootSearchPendingKey === player.key}
-								Adding…
-							{:else if player.id && player.eligible}
-								Pick
-							{:else if player.existing}
-								Add to list
-							{:else}
-								Add player
-							{/if}
-						</span>
-					</button>
-				{/each}
-			</div>
-		{/if}
-	</section>
-
-	<section class="card gb-list">
-		<h3>Shortlist</h3>
-		{#if fs.goldenBoot.shortlist.filter((p) => p.seeded).length === 0}
-			<p class="muted small">No candidates yet.</p>
-		{:else}
-			<div class="gb-grid">
-				{#each fs.goldenBoot.shortlist.filter((p) => p.seeded) as player (player.id)}
-					<button
-						class="gb-player"
-						class:picked={fs.goldenBootPlayer === player.id}
-						disabled={fs.locked}
-						onclick={() => pickGoldenBoot(player.id)}
-					>
-						<span class="headshot-wrap">
-							{#if player.photoUrl}
-								<img class="headshot" src={player.photoUrl} alt="" loading="lazy" />
-							{:else}
-								<span class="headshot fallback">{initials(player.name)}</span>
-							{/if}
-						</span>
-						<span class="gb-main">
-							<b>{player.name}</b>
-							<span class="gb-search-meta" style="margin-top: 0.15rem;">
-								<Flag
-									iso2={fs.team(player.teamId)?.iso2 ?? ''}
-									code={fs.team(player.teamId)?.fifaCode ?? ''}
-								/>
-								<span>{player.teamName}</span>
-							</span>
-						</span>
-						{#if fs.goldenBootPlayer === player.id}
-							<span class="gb-player-status"><Check size={17} /></span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-		{/if}
-	</section>
-
-	<section class="card gb-live">
-		<div class="gb-live-head">
-			<h3>Top scorers</h3>
-			{#if fs.goldenBoot.updatedAt}
-				<p class="muted small gb-updated">Updated {updatedAt(fs.goldenBoot.updatedAt)}</p>
-			{/if}
-		</div>
-		<table class="gb-table">
-			<thead>
-				<tr>
-					<th>#</th>
-					<th>Player</th>
-					<th>Team</th>
-					<th class="num">Goals</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each goldenBootLeaders as player (player.id)}
-					<tr class:picked={fs.goldenBootPlayer === player.id}>
-						<td>{player.rank || '–'}</td>
-						<td>
-							<span class="gb-row-player">
-								{#if player.photoUrl}
-									<img class="mini-headshot" src={player.photoUrl} alt="" loading="lazy" />
-								{:else}
-									<span class="mini-headshot fallback">{initials(player.name)}</span>
-								{/if}
-								<b>{player.name}</b>
-							</span>
-						</td>
-						<td>
-							<span class="gb-team">
-								<Flag
-									iso2={fs.team(player.teamId)?.iso2 ?? ''}
-									code={fs.team(player.teamId)?.fifaCode ?? ''}
-								/>
-								<span class="tm-full">{player.teamName}</span>
-								<span class="tm-short"
-									>{fs.team(player.teamId)?.fifaCode ?? player.teamName}</span
-								>
-							</span>
-						</td>
-						<td class="num digits">{player.goals}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</section>
 
 	{#if !fs.locked}
 		<div class="savebar">
@@ -431,9 +277,26 @@
 	{/if}
 {/if}
 
+{#snippet lockedPick(name: string, players: typeof fs.allPlayers)}
+	{#if name}
+		{@const picked = players.find((p) => p.name === name)}
+		{@const team = picked ? tipsStore.teams[picked.teamId] : undefined}
+		<div class="locked-pick">
+			{#if team}<Flag iso2={team.iso2} code={team.fifaCode} />{/if}
+			<b>{name}</b>
+			{#if team}<span class="muted small">{team.name}</span>{/if}
+		</div>
+	{:else}
+		<p class="muted small">No pick made.</p>
+	{/if}
+{/snippet}
+
 <style>
 	h1 {
 		margin: 0.25rem 0 0.2rem;
+	}
+	h3 {
+		margin: 0 0 0.25rem;
 	}
 	.small {
 		font-size: 0.85rem;
@@ -467,137 +330,47 @@
 			padding: 0.75rem 2rem 0.85rem;
 		}
 	}
-	.cnt {
-		font-family: var(--font-mono);
-		font-weight: 700;
-		padding: 0.2rem 0.6rem;
-		border-radius: var(--radius-pill);
-		border: 1px solid var(--border);
-		color: var(--muted);
-		white-space: nowrap;
-	}
-	.ind {
-		display: inline-grid;
-		place-items: center;
-	}
-	.ind.ok {
-		color: var(--success);
-	}
-	.ind.no {
-		color: var(--danger);
-	}
-	.gb-head {
+	.award-card {
 		display: flex;
-		align-items: flex-start;
-		gap: 1rem;
-		margin-bottom: 0.7rem;
-	}
-	.gb-head .small {
-		flex: 1;
-		margin: 0;
-	}
-	.gb-pick {
-		display: flex;
-		align-items: center;
-		gap: 0.7rem;
-		border-color: color-mix(in srgb, var(--gold) 42%, var(--border));
-	}
-	.gb-main {
-		display: grid;
-		gap: 0.15rem;
-		min-width: 0;
-		flex: 1;
-	}
-	.gb-main b,
-	.gb-main i {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.gb-main i {
-		font-style: normal;
-		font-size: 0.78rem;
-		color: var(--muted);
-	}
-	.gb-list h3,
-	.gb-search h3,
-	.gb-live h3 {
-		margin: 0 0 0.7rem;
-	}
-	.gb-search {
-		display: grid;
+		flex-direction: column;
 		gap: 0.75rem;
 	}
-	.gb-search-head {
+	.award-head {
 		display: flex;
 		align-items: flex-start;
-		justify-content: space-between;
-		gap: 1rem;
+		gap: 0.7rem;
 	}
-	.gb-search-head .small {
+	.award-icon {
+		font-size: 1.4rem;
+		line-height: 1;
+		flex-shrink: 0;
+		margin-top: 0.1rem;
+	}
+	.award-head > div {
+		flex: 1;
+		min-width: 0;
+	}
+	.award-head .small {
 		margin: 0;
-	}
-	.gb-search-input {
-		width: 100%;
-		padding: 0.8rem 0.9rem;
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
-		background: var(--surface-2);
-		color: var(--text);
-	}
-	.gb-search-input::placeholder {
 		color: var(--muted);
 	}
-	.gb-search-results {
-		display: grid;
-		gap: 0.55rem;
+	.award-check {
+		color: var(--success);
+		flex-shrink: 0;
+		margin-top: 0.25rem;
 	}
-	.gb-search-result {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) auto;
-		align-items: center;
-		gap: 0.7rem;
-		padding: 0.65rem;
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
-		background: var(--surface-2);
-		color: var(--text);
-		text-align: left;
-	}
-	.gb-search-result.picked {
-		border-color: color-mix(in srgb, var(--success) 48%, var(--border));
-		background: color-mix(in srgb, var(--success) 9%, var(--surface-2));
-	}
-	.gb-search-result:disabled {
-		opacity: 0.88;
-	}
-	.gb-search-meta {
+	.locked-pick {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.45rem;
-		color: var(--muted);
-		font-size: 0.8rem;
-		min-width: 0;
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		background: var(--surface-2);
+		font-size: 0.88rem;
 	}
-	.gb-search-meta span {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.gb-search-action {
-		font-size: 0.72rem;
-		font-weight: 700;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: var(--muted);
-		white-space: nowrap;
-	}
-	.api-note {
-		text-align: right;
-	}
-	.gb-updated {
-		margin: 0 0 0.6rem;
-		text-align: right;
+	.gb-live h3 {
+		margin-bottom: 0.6rem;
 	}
 	.gb-live-head {
 		display: flex;
@@ -608,75 +381,9 @@
 	.gb-live-head h3 {
 		margin-bottom: 0.6rem;
 	}
-	.gb-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-		gap: 0.65rem;
-	}
-	.gb-player {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 0.5rem;
-		min-height: 56px;
-		padding: 0.85rem 0.5rem;
-		border: 1px solid var(--border);
-		border-radius: var(--radius-sm);
-		background: var(--surface-2);
-		color: var(--text);
-		text-align: center;
-		position: relative;
-	}
-	.gb-player .headshot-wrap,
-	.gb-player .headshot {
-		width: 54px;
-		height: 54px;
-	}
-	.gb-player .gb-main {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		width: 100%;
-	}
-	.gb-player-status {
-		position: absolute;
-		top: 0.4rem;
-		right: 0.4rem;
-	}
-	.gb-player.picked {
-		border-color: color-mix(in srgb, var(--success) 48%, var(--border));
-		background: color-mix(in srgb, var(--success) 9%, var(--surface-2));
-	}
-	.gb-player:disabled {
-		cursor: default;
-		opacity: 0.88;
-	}
-	.headshot-wrap,
-	.headshot,
-	.mini-headshot {
-		display: inline-grid;
-		place-items: center;
-		border-radius: 50%;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		object-fit: cover;
-		flex: none;
-	}
-	.headshot,
-	.headshot-wrap {
-		width: 42px;
-		height: 42px;
-	}
-	.mini-headshot {
-		width: 28px;
-		height: 28px;
-		font-size: 0.65rem;
-	}
-	.fallback {
-		font-family: var(--font-display);
-		font-weight: 800;
-		color: var(--muted);
+	.gb-updated {
+		margin: 0 0 0.6rem;
+		text-align: right;
 	}
 	.gb-table {
 		width: 100%;
@@ -693,9 +400,6 @@
 		font-size: 0.78rem;
 		font-weight: 700;
 	}
-	.gb-table tr.picked td {
-		background: color-mix(in srgb, var(--accent) 8%, transparent);
-	}
 	.gb-row-player,
 	.gb-team {
 		display: inline-flex;
@@ -708,6 +412,23 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.mini-headshot {
+		display: inline-grid;
+		place-items: center;
+		border-radius: 50%;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		object-fit: cover;
+		flex: none;
+		width: 28px;
+		height: 28px;
+		font-size: 0.65rem;
+	}
+	.fallback {
+		font-family: var(--font-display);
+		font-weight: 800;
+		color: var(--muted);
 	}
 	.tm-short {
 		display: none;
@@ -748,9 +469,7 @@
 		text-transform: none;
 		letter-spacing: 0;
 	}
-	:global(:root[data-theme='worldcup']) .gb-pick,
-	:global(:root[data-theme='worldcup']) .gb-search,
-	:global(:root[data-theme='worldcup']) .gb-list,
+	:global(:root[data-theme='worldcup']) .award-card,
 	:global(:root[data-theme='worldcup']) .gb-live,
 	:global(:root[data-theme='worldcup']) .lockbar {
 		background:
@@ -762,15 +481,11 @@
 			0 16px 42px -34px rgba(0, 0, 0, 0.9),
 			inset 0 1px 0 rgba(255, 255, 255, 0.035);
 	}
-	:global(:root[data-theme='worldcup']) .gb-pick::before,
-	:global(:root[data-theme='worldcup']) .gb-search::before,
-	:global(:root[data-theme='worldcup']) .gb-list::before,
+	:global(:root[data-theme='worldcup']) .award-card::before,
 	:global(:root[data-theme='worldcup']) .gb-live::before,
 	:global(:root[data-theme='worldcup']) .lockbar::before {
 		display: none;
 	}
-	:global(:root[data-theme='worldcup']) .gb-search-input,
-	:global(:root[data-theme='worldcup']) .gb-search-result,
 	:global(:root[data-theme='worldcup']) .savestat {
 		background: color-mix(in srgb, var(--surface-2) 78%, transparent);
 		border-color: color-mix(in srgb, var(--accent) 12%, var(--border));

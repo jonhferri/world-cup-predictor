@@ -650,7 +650,12 @@ func scoreForecast(app core.App, cfg Config, fc *core.Record) (fcBreakdown, int)
 	// ---- Golden boot (from forecast record) ----
 	if tournamentComplete(app) {
 		winnerID := topscorer.WinnerID(app)
-		if winnerID != "" && topscorer.PickFromForecast(fc) == winnerID {
+		winnerName := topscorer.WinnerName(app)
+		pick := topscorer.PickFromForecast(fc)
+		pickName := fc.GetString("goldenBootPlayerName")
+		matched := (winnerID != "" && pick == winnerID) ||
+			(winnerName != "" && (strings.EqualFold(pick, winnerName) || strings.EqualFold(pickName, winnerName)))
+		if matched {
 			b.GoldenBoot = cfg.Forecast.GoldenBootWinner
 			b.GoldenBootCorrect = 1
 		}

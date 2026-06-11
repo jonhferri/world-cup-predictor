@@ -595,7 +595,10 @@
 														}}
 														class:selected={firstPlayer === p.name}
 													>
-														<span class="p-name">{p.name}</span>
+														<span class="p-name">
+															{#if tipsStore.team(p.teamId)}{@const ptm = tipsStore.team(p.teamId)}<Flag iso2={ptm.iso2} code={ptm.fifaCode} />{/if}
+															{p.name}
+														</span>
 														<span class="p-pos muted">{p.position}</span>
 													</button>
 												</li>

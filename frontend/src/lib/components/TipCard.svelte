@@ -543,62 +543,66 @@
 				<!-- First scorer picks -->
 				{#if players.length > 0 || match.homeTeam}
 					<div class="first-scorer-section">
-						<p class="phase">First team to score</p>
-						<div class="first-team-btns">
-							<button
-								class="first-team-btn"
-								class:sel={firstTeam === match.homeTeam}
-								onclick={() => { firstTeam = firstTeam === match.homeTeam ? '' : match.homeTeam; }}
-							>
-								<Flag iso2={H.iso2} code={H.code} />{H.name}
-							</button>
-							<button
-								class="first-team-btn"
-								class:sel={firstTeam === match.awayTeam}
-								onclick={() => { firstTeam = firstTeam === match.awayTeam ? '' : match.awayTeam; }}
-							>
-								<Flag iso2={A.iso2} code={A.code} />{A.name}
-							</button>
+						<div class="fs-col">
+							<p class="phase">First team to score</p>
+							<div class="first-team-btns">
+								<button
+									class="first-team-btn"
+									class:sel={firstTeam === match.homeTeam}
+									onclick={() => { firstTeam = firstTeam === match.homeTeam ? '' : match.homeTeam; }}
+								>
+									<Flag iso2={H.iso2} code={H.code} />{H.name}
+								</button>
+								<button
+									class="first-team-btn"
+									class:sel={firstTeam === match.awayTeam}
+									onclick={() => { firstTeam = firstTeam === match.awayTeam ? '' : match.awayTeam; }}
+								>
+									<Flag iso2={A.iso2} code={A.code} />{A.name}
+								</button>
+							</div>
 						</div>
 						{#if players.length > 0}
-							<p class="phase" style="margin-top: 0.8rem;">First player to score</p>
-							<div class="player-picker" class:open={playerDropdownOpen}>
-								<input
-									class="player-input"
-									type="text"
-									placeholder="Search player…"
-									bind:value={playerSearch}
-									onfocus={() => (playerDropdownOpen = true)}
-									onblur={() => setTimeout(() => (playerDropdownOpen = false), 160)}
-									oninput={() => { if (playerSearch !== firstPlayer) firstPlayer = ''; }}
-								/>
-								{#if playerSearch && playerSearch === firstPlayer}
-									<button
-										class="player-clear"
-										onclick={() => { firstPlayer = ''; playerSearch = ''; }}
-										aria-label="Clear player"
-									>×</button>
-								{/if}
-								{#if playerDropdownOpen && filteredPlayers.length > 0}
-									<ul class="player-dropdown">
-										{#each filteredPlayers.slice(0, 30) as p (p.id)}
-											<li>
-												<button
-													onmousedown={(e) => e.preventDefault()}
-													onclick={() => {
-														firstPlayer = p.name;
-														playerSearch = p.name;
-														playerDropdownOpen = false;
-													}}
-													class:selected={firstPlayer === p.name}
-												>
-													<span class="p-name">{p.name}</span>
-													<span class="p-pos muted">{p.position}</span>
-												</button>
-											</li>
-										{/each}
-									</ul>
-								{/if}
+							<div class="fs-col">
+								<p class="phase">First player to score</p>
+								<div class="player-picker">
+									<input
+										class="player-input"
+										type="text"
+										placeholder="Search player…"
+										bind:value={playerSearch}
+										onfocus={() => (playerDropdownOpen = true)}
+										onblur={() => setTimeout(() => (playerDropdownOpen = false), 160)}
+										oninput={() => { if (playerSearch !== firstPlayer) firstPlayer = ''; }}
+									/>
+									{#if playerSearch && playerSearch === firstPlayer}
+										<button
+											class="player-clear"
+											onclick={() => { firstPlayer = ''; playerSearch = ''; }}
+											aria-label="Clear player"
+										>×</button>
+									{/if}
+									{#if playerDropdownOpen && filteredPlayers.length > 0}
+										<ul class="player-dropdown">
+											{#each filteredPlayers.slice(0, 30) as p (p.id)}
+												<li>
+													<button
+														onmousedown={(e) => e.preventDefault()}
+														onclick={() => {
+															firstPlayer = p.name;
+															playerSearch = p.name;
+															playerDropdownOpen = false;
+														}}
+														class:selected={firstPlayer === p.name}
+													>
+														<span class="p-name">{p.name}</span>
+														<span class="p-pos muted">{p.position}</span>
+													</button>
+												</li>
+											{/each}
+										</ul>
+									{/if}
+								</div>
 							</div>
 						{/if}
 					</div>
@@ -1091,32 +1095,52 @@
 	}
 	.first-scorer-section {
 		margin-top: 0.6rem;
-		padding-top: 0.6rem;
+		padding-top: 0.5rem;
 		border-top: 1px dashed var(--border);
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.3rem 0.8rem;
+		align-items: start;
+	}
+	@media (max-width: 560px) {
+		.first-scorer-section {
+			grid-template-columns: 1fr;
+			gap: 0.4rem 0;
+		}
+		.first-team-btns {
+			flex-direction: row;
+		}
+	}
+	.fs-col {
+		min-width: 0;
+	}
+	.first-scorer-section .phase {
+		text-align: left;
+		margin-top: 0;
+		margin-bottom: 0.25rem;
 	}
 	.first-team-btns {
 		display: flex;
-		gap: 0.5rem;
-		margin-top: 0.4rem;
+		flex-direction: column;
+		gap: 0.35rem;
 	}
 	.first-team-btn {
-		flex: 1;
 		display: inline-flex;
 		align-items: center;
-		justify-content: center;
 		gap: 0.4rem;
-		padding: 0.55rem 0.6rem;
+		padding: 0.45rem 0.55rem;
 		border-radius: var(--radius-sm);
 		border: 1px solid var(--border);
 		background: var(--surface-2);
 		color: var(--text);
 		font: inherit;
-		font-size: 0.85rem;
+		font-size: 0.82rem;
 		font-weight: 600;
 		cursor: pointer;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+		width: 100%;
 	}
 	.first-team-btn.sel {
 		background: var(--text);
@@ -1125,17 +1149,16 @@
 	}
 	.player-picker {
 		position: relative;
-		margin-top: 0.4rem;
 	}
 	.player-input {
 		width: 100%;
-		padding: 0.55rem 2rem 0.55rem 0.75rem;
+		padding: 0.45rem 1.8rem 0.45rem 0.6rem;
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
 		background: var(--surface-2);
 		color: var(--text);
 		font: inherit;
-		font-size: 0.88rem;
+		font-size: 0.84rem;
 		box-sizing: border-box;
 	}
 	.player-input:focus {
@@ -1144,7 +1167,7 @@
 	}
 	.player-clear {
 		position: absolute;
-		right: 0.5rem;
+		right: 0.4rem;
 		top: 50%;
 		transform: translateY(-50%);
 		background: none;
@@ -1152,37 +1175,32 @@
 		color: var(--muted);
 		font-size: 1.1rem;
 		cursor: pointer;
-		padding: 0 0.2rem;
+		padding: 0 0.15rem;
 		line-height: 1;
 	}
 	.player-dropdown {
-		position: absolute;
-		left: 0;
-		right: 0;
-		top: calc(100% + 2px);
-		z-index: 50;
 		background: var(--surface);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
 		box-shadow: var(--shadow-pop);
 		list-style: none;
-		margin: 0;
-		padding: 0.2rem 0;
-		max-height: 220px;
+		margin: 2px 0 0;
+		padding: 0.15rem 0;
+		max-height: 180px;
 		overflow-y: auto;
 	}
 	.player-dropdown li button {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.5rem;
+		gap: 0.4rem;
 		width: 100%;
-		padding: 0.45rem 0.75rem;
+		padding: 0.32rem 0.6rem;
 		background: none;
 		border: none;
 		color: var(--text);
 		font: inherit;
-		font-size: 0.88rem;
+		font-size: 0.83rem;
 		cursor: pointer;
 		text-align: left;
 	}
@@ -1191,7 +1209,7 @@
 		background: color-mix(in srgb, var(--accent) 10%, transparent);
 	}
 	.p-pos {
-		font-size: 0.72rem;
+		font-size: 0.7rem;
 		font-weight: 600;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;

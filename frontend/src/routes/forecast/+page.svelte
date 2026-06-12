@@ -89,18 +89,6 @@
 		}).format(date);
 	}
 
-	function initials(name: string) {
-		return name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((p) => p[0]?.toUpperCase() ?? '')
-			.join('');
-	}
-
-	let goldenBootLeaders = $derived(
-		fs.goldenBoot.leaders.length > 0 ? fs.goldenBoot.leaders : fs.goldenBoot.shortlist.slice(0, 10)
-	);
 	let gkPlayers = $derived(fs.allPlayers.filter((p) => p.position === 'GK'));
 </script>
 
@@ -280,175 +268,127 @@
 		<p class="section-desc muted">Predict the individual award winners.</p>
 	</section>
 
-	<!-- Golden Boot -->
-	<section class="card award-card">
-		<div class="award-head">
-			<span class="award-icon" aria-hidden="true">⚽</span>
-			<div>
-				<h3>Golden Boot</h3>
-				<p class="muted small">Most goals scored in the tournament.</p>
+	<div class="awards-grid">
+		<!-- Golden Boot -->
+		<div class="card award-card">
+			<div class="award-head">
+				<span class="award-icon" aria-hidden="true">⚽</span>
+				<div>
+					<h3>Golden Boot</h3>
+					<p class="muted small">Most goals scored in the tournament.</p>
+				</div>
+				{#if fs.goldenBootName}<span class="award-check"><Check size={16} /></span>{/if}
 			</div>
-			{#if fs.goldenBootName}<span class="award-check"><Check size={16} /></span>{/if}
+			{#if fs.locked}
+				{@render lockedPick(fs.goldenBootName, fs.allPlayers)}
+			{:else if fs.allPlayers.length === 0}
+				<p class="muted small">Loading players…</p>
+			{:else}
+				<PlayerPicker
+					players={fs.allPlayers}
+					bind:value={fs.goldenBootName}
+					locked={fs.locked}
+					placeholder="Search Golden Boot candidate…"
+				/>
+			{/if}
 		</div>
-		{#if fs.locked}
-			{@render lockedPick(fs.goldenBootName, fs.allPlayers)}
-		{:else if fs.allPlayers.length === 0}
-			<p class="muted small">Loading players…</p>
-		{:else}
-			<PlayerPicker
-				players={fs.allPlayers}
-				bind:value={fs.goldenBootName}
-				locked={fs.locked}
-				placeholder="Search Golden Boot candidate…"
-			/>
-		{/if}
-	</section>
 
-	<!-- Golden Ball -->
-	<section class="card award-card">
-		<div class="award-head">
-			<span class="award-icon" aria-hidden="true">🏆</span>
-			<div>
-				<h3>Golden Ball</h3>
-				<p class="muted small">Best overall player of the tournament.</p>
+		<!-- Golden Ball -->
+		<div class="card award-card">
+			<div class="award-head">
+				<span class="award-icon" aria-hidden="true">🏆</span>
+				<div>
+					<h3>Golden Ball</h3>
+					<p class="muted small">Best overall player of the tournament.</p>
+				</div>
+				{#if fs.goldenBallPlayer}<span class="award-check"><Check size={16} /></span>{/if}
 			</div>
-			{#if fs.goldenBallPlayer}<span class="award-check"><Check size={16} /></span>{/if}
+			{#if fs.locked}
+				{@render lockedPick(fs.goldenBallPlayer, fs.allPlayers)}
+			{:else if fs.allPlayers.length === 0}
+				<p class="muted small">Loading players…</p>
+			{:else}
+				<PlayerPicker
+					players={fs.allPlayers}
+					bind:value={fs.goldenBallPlayer}
+					locked={fs.locked}
+					placeholder="Search Golden Ball candidate…"
+				/>
+			{/if}
 		</div>
-		{#if fs.locked}
-			{@render lockedPick(fs.goldenBallPlayer, fs.allPlayers)}
-		{:else if fs.allPlayers.length === 0}
-			<p class="muted small">Loading players…</p>
-		{:else}
-			<PlayerPicker
-				players={fs.allPlayers}
-				bind:value={fs.goldenBallPlayer}
-				locked={fs.locked}
-				placeholder="Search Golden Ball candidate…"
-			/>
-		{/if}
-	</section>
 
-	<!-- Golden Glove -->
-	<section class="card award-card">
-		<div class="award-head">
-			<span class="award-icon" aria-hidden="true">🧤</span>
-			<div>
-				<h3>Golden Glove</h3>
-				<p class="muted small">Best goalkeeper of the tournament.</p>
+		<!-- Golden Glove -->
+		<div class="card award-card">
+			<div class="award-head">
+				<span class="award-icon" aria-hidden="true">🧤</span>
+				<div>
+					<h3>Golden Glove</h3>
+					<p class="muted small">Best goalkeeper of the tournament.</p>
+				</div>
+				{#if fs.goldenGlovePlayer}<span class="award-check"><Check size={16} /></span>{/if}
 			</div>
-			{#if fs.goldenGlovePlayer}<span class="award-check"><Check size={16} /></span>{/if}
+			{#if fs.locked}
+				{@render lockedPick(fs.goldenGlovePlayer, gkPlayers.length > 0 ? gkPlayers : fs.allPlayers)}
+			{:else if fs.allPlayers.length === 0}
+				<p class="muted small">Loading players…</p>
+			{:else}
+				<PlayerPicker
+					players={gkPlayers.length > 0 ? gkPlayers : fs.allPlayers}
+					bind:value={fs.goldenGlovePlayer}
+					locked={fs.locked}
+					placeholder="Search goalkeeper…"
+				/>
+			{/if}
 		</div>
-		{#if fs.locked}
-			{@render lockedPick(fs.goldenGlovePlayer, gkPlayers.length > 0 ? gkPlayers : fs.allPlayers)}
-		{:else if fs.allPlayers.length === 0}
-			<p class="muted small">Loading players…</p>
-		{:else}
-			<PlayerPicker
-				players={gkPlayers.length > 0 ? gkPlayers : fs.allPlayers}
-				bind:value={fs.goldenGlovePlayer}
-				locked={fs.locked}
-				placeholder="Search goalkeeper…"
-			/>
-		{/if}
-	</section>
 
-	<!-- Best Young Player -->
-	<section class="card award-card">
-		<div class="award-head">
-			<span class="award-icon" aria-hidden="true">⭐</span>
-			<div>
-				<h3>Best Young Player</h3>
-				<p class="muted small">Best player born on or after January 1, 2004 (under 21).</p>
+		<!-- Best Young Player -->
+		<div class="card award-card">
+			<div class="award-head">
+				<span class="award-icon" aria-hidden="true">⭐</span>
+				<div>
+					<h3>Best Young Player</h3>
+					<p class="muted small">Best player born on or after January 1, 2004 (under 21).</p>
+				</div>
+				{#if fs.bestYoungPlayer}<span class="award-check"><Check size={16} /></span>{/if}
 			</div>
-			{#if fs.bestYoungPlayer}<span class="award-check"><Check size={16} /></span>{/if}
+			{#if fs.locked}
+				{@render lockedPick(fs.bestYoungPlayer, fs.allPlayers)}
+			{:else if fs.allPlayers.length === 0}
+				<p class="muted small">Loading players…</p>
+			{:else}
+				<PlayerPicker
+					players={fs.allPlayers}
+					bind:value={fs.bestYoungPlayer}
+					locked={fs.locked}
+					placeholder="Search young player…"
+				/>
+			{/if}
 		</div>
-		{#if fs.locked}
-			{@render lockedPick(fs.bestYoungPlayer, fs.allPlayers)}
-		{:else if fs.allPlayers.length === 0}
-			<p class="muted small">Loading players…</p>
-		{:else}
-			<PlayerPicker
-				players={fs.allPlayers}
-				bind:value={fs.bestYoungPlayer}
-				locked={fs.locked}
-				placeholder="Search young player…"
-			/>
-		{/if}
-	</section>
 
-	<!-- Most Assists -->
-	<section class="card award-card">
-		<div class="award-head">
-			<span class="award-icon" aria-hidden="true">🎯</span>
-			<div>
-				<h3>Most Assists</h3>
-				<p class="muted small">Player with the most assists in the tournament.</p>
+		<!-- Most Assists -->
+		<div class="card award-card award-card--wide">
+			<div class="award-head">
+				<span class="award-icon" aria-hidden="true">🎯</span>
+				<div>
+					<h3>Most Assists</h3>
+					<p class="muted small">Player with the most assists in the tournament.</p>
+				</div>
+				{#if fs.mostAssistsPlayer}<span class="award-check"><Check size={16} /></span>{/if}
 			</div>
-			{#if fs.mostAssistsPlayer}<span class="award-check"><Check size={16} /></span>{/if}
+			{#if fs.locked}
+				{@render lockedPick(fs.mostAssistsPlayer, fs.allPlayers)}
+			{:else if fs.allPlayers.length === 0}
+				<p class="muted small">Loading players…</p>
+			{:else}
+				<PlayerPicker
+					players={fs.allPlayers}
+					bind:value={fs.mostAssistsPlayer}
+					locked={fs.locked}
+					placeholder="Search assists leader…"
+				/>
+			{/if}
 		</div>
-		{#if fs.locked}
-			{@render lockedPick(fs.mostAssistsPlayer, fs.allPlayers)}
-		{:else if fs.allPlayers.length === 0}
-			<p class="muted small">Loading players…</p>
-		{:else}
-			<PlayerPicker
-				players={fs.allPlayers}
-				bind:value={fs.mostAssistsPlayer}
-				locked={fs.locked}
-				placeholder="Search assists leader…"
-			/>
-		{/if}
-	</section>
-
-	<!-- Live top scorers (reference) -->
-	{#if goldenBootLeaders.length > 0}
-		<section class="card gb-live">
-			<div class="gb-live-head">
-				<h3>Top scorers</h3>
-				{#if fs.goldenBoot.updatedAt}
-					<p class="muted small gb-updated">Updated {updatedAt(fs.goldenBoot.updatedAt)}</p>
-				{/if}
-			</div>
-			<table class="gb-table">
-				<thead>
-					<tr>
-						<th>#</th>
-						<th>Player</th>
-						<th>Team</th>
-						<th class="num">Goals</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each goldenBootLeaders as player (player.id)}
-						<tr>
-							<td>{player.rank || '–'}</td>
-							<td>
-								<span class="gb-row-player">
-									{#if player.photoUrl}
-										<img class="mini-headshot" src={player.photoUrl} alt="" loading="lazy" />
-									{:else}
-										<span class="mini-headshot fallback">{initials(player.name)}</span>
-									{/if}
-									<b>{player.name}</b>
-								</span>
-							</td>
-							<td>
-								<span class="gb-team">
-									<Flag
-										iso2={fs.team(player.teamId)?.iso2 ?? ''}
-										code={fs.team(player.teamId)?.fifaCode ?? ''}
-									/>
-									<span class="tm-full">{player.teamName}</span>
-									<span class="tm-short">{fs.team(player.teamId)?.fifaCode ?? player.teamName}</span>
-								</span>
-							</td>
-							<td class="num digits">{player.goals}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</section>
-	{/if}
+	</div>
 
 	{#if !fs.locked}
 		<div class="savebar">
@@ -799,10 +739,27 @@
 	}
 
 	/* ── Awards ── */
+	.awards-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.6rem;
+		/* allow absolute-positioned dropdowns to overflow */
+		overflow: visible;
+	}
+	@media (max-width: 520px) {
+		.awards-grid {
+			grid-template-columns: 1fr;
+		}
+	}
 	.award-card {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+		/* let PlayerPicker dropdown escape the card boundary */
+		overflow: visible;
+	}
+	.award-card--wide {
+		grid-column: 1 / -1;
 	}
 	.award-head {
 		display: flex;
@@ -839,80 +796,6 @@
 		font-size: 0.88rem;
 	}
 
-	/* ── Top Scorers ── */
-	.gb-live h3 {
-		margin-bottom: 0.6rem;
-	}
-	.gb-live-head {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-	.gb-live-head h3 {
-		margin-bottom: 0.6rem;
-	}
-	.gb-updated {
-		margin: 0 0 0.6rem;
-		text-align: right;
-	}
-	.gb-table {
-		width: 100%;
-		border-collapse: collapse;
-	}
-	.gb-table th,
-	.gb-table td {
-		padding: 0.55rem 0.35rem;
-		border-bottom: 1px solid var(--border);
-		text-align: left;
-	}
-	.gb-table th {
-		color: var(--muted);
-		font-size: 0.78rem;
-		font-weight: 700;
-	}
-	.gb-row-player,
-	.gb-team {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
-		min-width: 0;
-	}
-	.gb-row-player b,
-	.gb-team {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.mini-headshot {
-		display: inline-grid;
-		place-items: center;
-		border-radius: 50%;
-		background: var(--surface);
-		border: 1px solid var(--border);
-		object-fit: cover;
-		flex: none;
-		width: 28px;
-		height: 28px;
-		font-size: 0.65rem;
-	}
-	.fallback {
-		font-family: var(--font-display);
-		font-weight: 800;
-		color: var(--muted);
-	}
-	.tm-short {
-		display: none;
-	}
-	@media (max-width: 500px) {
-		.tm-full {
-			display: none;
-		}
-		.tm-short {
-			display: inline;
-		}
-	}
-
 	/* ── Save bar ── */
 	.savebar {
 		position: sticky;
@@ -946,7 +829,6 @@
 	/* ── Theme overrides ── */
 	:global(:root[data-theme='worldcup']) .group-card,
 	:global(:root[data-theme='worldcup']) .award-card,
-	:global(:root[data-theme='worldcup']) .gb-live,
 	:global(:root[data-theme='worldcup']) .lockbar {
 		background:
 			radial-gradient(circle at 14% 0%, rgba(143, 197, 143, 0.075), transparent 32%),
@@ -959,7 +841,6 @@
 	}
 	:global(:root[data-theme='worldcup']) .group-card::before,
 	:global(:root[data-theme='worldcup']) .award-card::before,
-	:global(:root[data-theme='worldcup']) .gb-live::before,
 	:global(:root[data-theme='worldcup']) .lockbar::before {
 		display: none;
 	}

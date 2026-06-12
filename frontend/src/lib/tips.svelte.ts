@@ -63,6 +63,16 @@ export interface MatchOdds {
 	awayOdds: number;
 }
 
+export interface TipComponents {
+	tendency: number;
+	exact: number;
+	totalGoals: number;
+	goalDiff: number;
+	firstTeamScorer: number;
+	firstPlayerScorer: number;
+	turbo: boolean;
+}
+
 export interface FriendTip {
 	userId: string;
 	name: string;
@@ -77,6 +87,7 @@ export interface FriendTip {
 	firstPlayer: string;
 	turbo?: boolean;
 	points: number; // -1 = no tip submitted
+	components?: TipComponents;
 }
 
 class TipsStore {
@@ -227,7 +238,12 @@ class TipsStore {
 		const r = await pb.send(`/api/tips/others/${matchId}`, {
 			method: 'GET'
 		});
-		return r.tips ?? [];
+		return (r.tips ?? []).map((t: FriendTip & { components?: string }) => ({
+			...t,
+			components: typeof t.components === 'string' && t.components
+				? JSON.parse(t.components)
+				: t.components
+		}));
 	}
 
 	async playersForTeams(teamIds: string[]): Promise<Player[]> {

@@ -6,6 +6,7 @@
 		teamsResolved,
 		type Match,
 		type FriendTip,
+		type TipComponents,
 		type Player
 	} from '$lib/tips.svelte';
 	import { vibrate } from '$lib/haptics';
@@ -445,20 +446,35 @@
 							</thead>
 							<tbody>
 								{#each visibleFriends as f (f.userId)}
+									{@const c = f.components}
 									<tr class:fme={f.isMe}>
 										<td class="fname">{f.name}</td>
 										<td class="ftip">
-											{f.ftHome}:{f.ftAway}
+											<span
+												class="fscore"
+												class:fscore-exact={c && c.exact > 0}
+												class:fscore-tendency={c && c.tendency > 0 && c.exact === 0}
+											>
+												{f.ftHome}:{f.ftAway}
+											</span>
 											{#if f.advancer}
 												<span class="fadv">→ {teamDisplayName(tipsStore.team(f.advancer))}</span>
+											{/if}
+											{#if c}
+												<span class="fcomps">
+													{#if c.tendency > 0}<span class="fcomp fc-tendency" title="Correct outcome">W</span>{/if}
+													{#if c.exact > 0}<span class="fcomp fc-exact" title="Exact score">=</span>{/if}
+													{#if c.totalGoals > 0}<span class="fcomp fc-goals" title="Exact goals (home or away)">G</span>{/if}
+													{#if c.goalDiff > 0}<span class="fcomp fc-diff" title="Correct goal difference">Δ</span>{/if}
+												</span>
 											{/if}
 										</td>
 										<td class="ftip fscorer">
 											{#if f.firstTeam}
-												<span class="fts">{tipsStore.team(f.firstTeam)?.fifaCode ?? teamDisplayName(tipsStore.team(f.firstTeam))}</span>
+												<span class="fts" class:fts-ok={c && c.firstTeamScorer > 0}>{tipsStore.team(f.firstTeam)?.fifaCode ?? teamDisplayName(tipsStore.team(f.firstTeam))}</span>
 											{/if}
 											{#if f.firstPlayer}
-												<span class="fps">{f.firstPlayer.split(' ').pop()}</span>
+												<span class="fps" class:fps-ok={c && c.firstPlayerScorer > 0}>{f.firstPlayer.split(' ').pop()}</span>
 											{/if}
 											{#if !f.firstTeam && !f.firstPlayer}
 												<span class="muted">—</span>
@@ -1011,15 +1027,55 @@
 		font-weight: 400;
 		font-size: 0.78rem;
 	}
+	.fscore {
+		font-weight: 700;
+		color: var(--muted);
+		transition: color 0.1s;
+	}
+	.fscore-tendency {
+		color: var(--success);
+	}
+	.fscore-exact {
+		color: var(--gold);
+	}
+	.fcomps {
+		display: flex;
+		gap: 2px;
+		margin-top: 2px;
+	}
+	.fcomp {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 14px;
+		height: 14px;
+		border-radius: 2px;
+		font-size: 0.58rem;
+		font-weight: 800;
+		letter-spacing: 0;
+		color: #fff;
+	}
+	.fc-tendency { background: var(--success); }
+	.fc-exact    { background: var(--gold); }
+	.fc-goals    { background: color-mix(in srgb, var(--accent) 80%, #2a8a3d); }
+	.fc-diff     { background: color-mix(in srgb, var(--muted) 70%, #555); }
 	.fts {
 		font-weight: 700;
-		color: var(--accent);
+		color: var(--muted);
 		font-size: 0.75rem;
 		letter-spacing: 0.04em;
+		transition: color 0.1s;
+	}
+	.fts-ok {
+		color: var(--accent);
 	}
 	.fps {
 		color: var(--muted);
 		font-size: 0.75rem;
+		transition: color 0.1s;
+	}
+	.fps-ok {
+		color: var(--gold);
 	}
 	.fadv {
 		display: block;

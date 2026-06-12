@@ -227,17 +227,21 @@ func Register(app core.App, se *core.ServeEvent) {
 
 		// Default scoring config for points display.
 		def, _ := app.FindFirstRecordByFilter("scoring_configs", "isDefault = true")
-		pointsFor := func(uid string) int {
+		type scoreRow struct {
+			points     int
+			components string
+		}
+		scoreFor := func(uid string) scoreRow {
 			if def == nil {
-				return -1
+				return scoreRow{points: -1}
 			}
 			s, err := app.FindFirstRecordByFilter("match_scores",
 				"user = {:u} && match = {:m} && config = {:c}",
 				map[string]any{"u": uid, "m": matchID, "c": def.Id})
 			if err != nil {
-				return -1
+				return scoreRow{points: -1}
 			}
-			return s.GetInt("points")
+			return scoreRow{points: s.GetInt("points"), components: s.GetString("components")}
 		}
 
 		coMembers, err := sharedLeagueUserIDs(app, e.Auth.Id)
@@ -262,6 +266,7 @@ func Register(app core.App, se *core.ServeEvent) {
 			if err != nil {
 				continue
 			}
+			sr := scoreFor(uid)
 			row := map[string]any{
 				"userId":      uid,
 				"name":        u.GetString("name"),
@@ -274,7 +279,8 @@ func Register(app core.App, se *core.ServeEvent) {
 				"advancer":    t.GetString("advancer"),
 				"firstTeam":   t.GetString("firstTeam"),
 				"firstPlayer": t.GetString("firstPlayer"),
-				"points":      pointsFor(uid),
+				"points":      sr.points,
+				"components":  sr.components,
 			}
 			if isMe {
 				r := row

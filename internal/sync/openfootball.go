@@ -9,8 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/pocketbase/pocketbase/core"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/oyvhov/world-cup-pool/internal/seed"
 )
@@ -31,6 +33,19 @@ type ofGoal struct {
 	Name   string `json:"name"`
 	Minute string `json:"minute"` // "9" or "45+2" stoppage-time format
 	Offset int    `json:"offset"`
+}
+
+// normalizePlayerName strips diacritics and lowercases for accent-insensitive
+// comparison between openfootball names and user-submitted player picks.
+func normalizePlayerName(s string) string {
+	var b strings.Builder
+	for _, r := range norm.NFD.String(s) {
+		if unicode.Is(unicode.Mn, r) {
+			continue
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
 }
 
 // parseMinute converts openfootball minute strings ("9", "45+2") to a
@@ -141,7 +156,7 @@ func openfootballSync(ctx context.Context, app core.App) error {
 			rec.GetInt("penHome") == ip(penH) && rec.GetInt("penAway") == ip(penA) &&
 			rec.GetInt("etHome") == ip(etH) && rec.GetInt("etAway") == ip(etA) &&
 			(firstTeamID == "" || rec.GetString("firstTeamScorer") == firstTeamID) &&
-			(firstPlayerName == "" || rec.GetString("firstPlayerScorer") == firstPlayerName) {
+			(firstPlayerName == "" || normalizePlayerName(rec.GetString("firstPlayerScorer")) == normalizePlayerName(firstPlayerName)) {
 			continue
 		}
 		applyResult(rec, "finished", pi(ftH), pi(ftA), etH, etA, penH, penA)

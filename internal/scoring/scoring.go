@@ -35,6 +35,23 @@ func normalizeAccents(s string) string {
 	return b.String()
 }
 
+
+func normalizeName(s string) string {
+    // decompose, drop combining marks, lowercase, strip punctuation, collapse spaces
+    decomp := norm.NFD.String(s)
+    var b strings.Builder
+    for _, r := range decomp {
+        if unicode.Is(unicode.Mn, r) { // skip diacritics
+            continue
+        }
+        if unicode.IsPunct(r) || unicode.IsSymbol(r) {
+            continue
+        }
+        b.WriteRune(unicode.ToLower(r))
+    }
+    out := strings.Join(strings.Fields(b.String()), " ")
+    return strings.TrimSpace(out)
+}
 // ---- Config ----
 
 type Config struct {
@@ -193,7 +210,7 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 	if m.FirstTeamScorer != "" && m.FirstTeamScorer == p.FirstTeam {
 		r.FirstTeamScorer = cfg.Match.FirstTeamScorer
 	}
-	if m.FirstPlayerScorer != "" && normalizeAccents(m.FirstPlayerScorer) == normalizeAccents(p.FirstPlayer) {
+	if m.FirstPlayerScorer != "" && normalizeName(m.FirstPlayerScorer) == normalizeName(p.FirstPlayer) {
 		r.FirstPlayerScorer = cfg.Match.FirstPlayerScorer
 	}
 	return r

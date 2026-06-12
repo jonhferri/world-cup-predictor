@@ -158,5 +158,20 @@ func openfootballSync(ctx context.Context, app core.App) error {
 	if err := ResolveBracket(app); err != nil {
 		return err
 	}
+	activateLiveMatches(app)
 	return nil
+}
+
+// activateLiveMatches marks any match whose kickoff has passed but that still
+// shows as "scheduled" as "live". This makes friends' picks visible to all
+// players as soon as the match starts, even before openfootball publishes scores.
+func activateLiveMatches(app core.App) {
+	now := time.Now().UTC()
+	recs, _ := app.FindRecordsByFilter("matches",
+		"status = 'scheduled' && kickoff != '' && kickoff <= {:now}",
+		"", 0, 0, map[string]any{"now": now.Format(time.RFC3339)})
+	for _, m := range recs {
+		m.Set("status", "live")
+		_ = app.Save(m)
+	}
 }

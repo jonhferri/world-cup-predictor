@@ -206,8 +206,8 @@ func Leaderboard(app core.App, leagueID string) (map[string]any, error) {
 		if a.CorrectWinners != b.CorrectWinners {
 			return a.CorrectWinners > b.CorrectWinners
 		}
-		if a.GdDeviation != b.GdDeviation {
-			return a.GdDeviation < b.GdDeviation
+		if a.ForecastPoints != b.ForecastPoints {
+			return a.ForecastPoints > b.ForecastPoints
 		}
 		if a.Predicted != b.Predicted {
 			return a.Predicted < b.Predicted

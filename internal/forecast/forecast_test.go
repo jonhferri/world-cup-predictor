@@ -5,24 +5,26 @@ import (
 	"time"
 )
 
-func TestIsLockedAtTournamentStartBoundary(t *testing.T) {
-	start := time.Date(2026, time.June, 11, 19, 0, 0, 0, time.UTC)
+func TestIsLockedAtForecastDeadline(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Paris")
+	if err != nil {
+		t.Skip("tzdata not available")
+	}
+	deadline := time.Date(2026, time.June, 14, 23, 59, 0, 0, loc)
 
 	tests := []struct {
 		name string
 		now  time.Time
 		want bool
 	}{
-		{name: "before first kickoff remains editable", now: start.Add(-time.Nanosecond), want: false},
-		{name: "at first kickoff still editable", now: start, want: false},
-		{name: "just before 24h deadline still editable", now: start.Add(24*time.Hour - time.Nanosecond), want: false},
-		{name: "at 24h after first kickoff locks forecast", now: start.Add(24 * time.Hour), want: true},
-		{name: "after deadline stays locked", now: start.Add(25 * time.Hour), want: true},
+		{name: "1ns before deadline is editable", now: deadline.Add(-time.Nanosecond), want: false},
+		{name: "at deadline is locked", now: deadline, want: true},
+		{name: "after deadline stays locked", now: deadline.Add(time.Hour), want: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := isLocked(tc.now, start); got != tc.want {
+			if got := isLocked(tc.now, time.Time{}); got != tc.want {
 				t.Fatalf("isLocked() = %v, want %v", got, tc.want)
 			}
 		})

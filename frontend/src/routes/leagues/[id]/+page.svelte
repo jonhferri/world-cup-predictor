@@ -40,7 +40,7 @@
 		points: language.text('Totalpoeng', 'Totalpoeng', 'Total points'),
 		exactScores: language.text('Flest eksakte resultater', 'Flest eksakte resultat', 'Most exact scores'),
 		correctWinners: language.text('Flest rette vinnere', 'Flest rette vinnarar', 'Most correct winners'),
-		goalDiffDeviation: language.text('Minst målforskjell-feil', 'Minst målforskjell-feil', 'Smallest goal-difference error'),
+		forecastPoints: language.text('Flest VM-tipspoeng', 'Flest VM-tipspoeng', 'Most World Cup tip points'),
 		fewestTips: language.text('Færrest leverte tips', 'Færrast leverte tips', 'Fewest submitted tips'),
 		earliestEdit: language.text('Tidligste siste endring (levert først)', 'Tidlegaste siste endring (levert først)', 'Earliest last edit (submitted first)')
 	}));
@@ -277,7 +277,6 @@
 						<th class="num ext" title="World Cup tip points">WC</th>
 						<th class="num ext" title="Exact scores (tiebreaker 1)">Exact</th>
 						<th class="num ext" title="Correct winners (tiebreaker 2)">Win</th>
-						<th class="num ext" title="Goal-difference error (tiebreaker 3, lower is better)">GD&Delta;</th>
 						<th class="num ext" title="First team to score correct">FTS</th>
 						<th class="num ext" title="First player to score correct">FPS</th>
 					{/if}
@@ -332,7 +331,6 @@
 							<td class="num ext digits">{r.forecastPoints}</td>
 							<td class="num ext digits">{r.exactScores}</td>
 							<td class="num ext digits">{r.correctWinners}</td>
-							<td class="num ext digits">{r.gdDeviation}</td>
 							<td class="num ext digits">{r.firstTeamScorers ?? 0}</td>
 							<td class="num ext digits">{r.firstPlayerScorers ?? 0}</td>
 						{/if}
@@ -367,7 +365,6 @@
 										<span><i>World Cup tip points</i><b>{r.forecastPoints}</b></span>
 										<span><i>Exact scores</i><b>{r.exactScores}</b></span>
 										<span><i>Correct winners</i><b>{r.correctWinners}</b></span>
-										<span><i>Goal-difference error</i><b>{r.gdDeviation}</b></span>
 										<span><i>First team to score ✓</i><b>{r.firstTeamScorers ?? 0}</b></span>
 										<span><i>First player to score ✓</i><b>{r.firstPlayerScorers ?? 0}</b></span>
 									</div>

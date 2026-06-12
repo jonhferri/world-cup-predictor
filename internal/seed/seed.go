@@ -383,7 +383,7 @@ const DefaultScoringConfig = `{
     "goldenBootWinner": 15,
     "round": { "R32": 1, "R16": 2, "QF": 3, "SF": 5, "FINAL": 8, "CHAMPION": 13 }
   },
-  "tiebreakers": ["points", "exactScores", "correctWinners", "goalDiffDeviation", "fewestTips", "earliestEdit"]
+  "tiebreakers": ["points", "exactScores", "correctWinners", "forecastPoints", "fewestTips", "earliestEdit"]
 }`
 
 // ensureDefaultScoringConfig creates the default scoring config once.

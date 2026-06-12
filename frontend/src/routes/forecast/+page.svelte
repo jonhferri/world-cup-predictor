@@ -99,7 +99,7 @@
 			<h1>Tournament Predictions</h1>
 			<p class="muted desc">
 				Predict group standings, the knockout bracket, and award winners.
-				{#if fs.locked}<b>Locked.</b>{:else}Locks at tournament kickoff.{/if}
+				{#if fs.locked}<b>Locked.</b>{:else}Locks <b>June 14 at 23:59 Paris time</b>.{/if}
 			</p>
 			{#if !fs.locked && fs.tournamentStart}
 				<DeadlineCountdown deadline={fs.tournamentStart} label="Locks" compact />
@@ -109,6 +109,12 @@
 </div>
 
 {#if err}<p class="error">{err}</p>{/if}
+
+{#if !fs.locked}
+	<div class="card deadline-banner">
+		⏳ Competition tips lock on <b>June 14 at 23:59 Paris time (CEST)</b>. Submit your picks before then — the bracket and awards cannot be changed after that.
+	</div>
+{/if}
 
 {#if !fs.loaded}
 	<p class="muted">Loading…</p>
@@ -436,6 +442,13 @@
 		align-items: center;
 		gap: 0.5rem;
 		color: var(--warning);
+	}
+	.deadline-banner {
+		margin-top: 0.75rem;
+		font-size: 0.9rem;
+		border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+		background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+		color: var(--text);
 	}
 	.stickyhead {
 		position: sticky;

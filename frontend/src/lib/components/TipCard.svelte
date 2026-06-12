@@ -439,6 +439,7 @@
 								<tr>
 									<th></th>
 									<th class="ftip">{language.text('Tips', 'Tips', 'Tip')}</th>
+									<th class="ftip">⚽ 1st</th>
 									<th class="fpts">{language.text('P', 'P', 'Pts')}</th>
 								</tr>
 							</thead>
@@ -450,6 +451,17 @@
 											{f.ftHome}:{f.ftAway}
 											{#if f.advancer}
 												<span class="fadv">→ {teamDisplayName(tipsStore.team(f.advancer))}</span>
+											{/if}
+										</td>
+										<td class="ftip fscorer">
+											{#if f.firstTeam}
+												<span class="fts">{tipsStore.team(f.firstTeam)?.fifaCode ?? teamDisplayName(tipsStore.team(f.firstTeam))}</span>
+											{/if}
+											{#if f.firstPlayer}
+												<span class="fps">{f.firstPlayer.split(' ').pop()}</span>
+											{/if}
+											{#if !f.firstTeam && !f.firstPlayer}
+												<span class="muted">—</span>
 											{/if}
 										</td>
 										<td class="fpts">
@@ -991,6 +1003,23 @@
 	.ftip {
 		white-space: nowrap;
 		font-weight: 700;
+	}
+	.fscorer {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		font-weight: 400;
+		font-size: 0.78rem;
+	}
+	.fts {
+		font-weight: 700;
+		color: var(--accent);
+		font-size: 0.75rem;
+		letter-spacing: 0.04em;
+	}
+	.fps {
+		color: var(--muted);
+		font-size: 0.75rem;
 	}
 	.fadv {
 		display: block;

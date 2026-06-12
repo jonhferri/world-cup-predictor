@@ -18,26 +18,22 @@ import (
 	"github.com/oyvhov/world-cup-pool/internal/topscorer"
 )
 
-// tournamentStart returns the earliest match kickoff (the global Forecast
-// deadline).
-func tournamentStart(app core.App) (time.Time, error) {
-	ms, err := app.FindRecordsByFilter("matches", "id != ''", "kickoff", 1, 0)
-	if err != nil || len(ms) == 0 {
-		return time.Time{}, err
+// forecastDeadline is the fixed cut-off for competition tip submissions:
+// June 14 2026 at 23:59 Paris time (CEST = UTC+2).
+var forecastDeadline = func() time.Time {
+	loc, err := time.LoadLocation("Europe/Paris")
+	if err != nil { // fallback if tzdata unavailable
+		return time.Date(2026, 6, 14, 21, 59, 0, 0, time.UTC)
 	}
-	return ms[0].GetDateTime("kickoff").Time(), nil
-}
+	return time.Date(2026, 6, 14, 23, 59, 0, 0, loc)
+}()
 
 func locked(app core.App) bool {
-	ts, err := tournamentStart(app)
-	if err != nil {
-		return false
-	}
-	return isLocked(clock.Now(app), ts)
+	return isLocked(clock.Now(app), time.Time{})
 }
 
-func isLocked(now, start time.Time) bool {
-	return !now.Before(start.Add(24 * time.Hour))
+func isLocked(now, _ time.Time) bool {
+	return !now.Before(forecastDeadline)
 }
 
 // groupTeams returns letter -> set(teamId) from tournament_groups.
@@ -245,13 +241,12 @@ func Register(app core.App, se *core.ServeEvent) {
 			return err
 		}
 
-		ts, _ := tournamentStart(app)
 		return e.JSON(http.StatusOK, map[string]any{
 			"groups":          gOut,
 			"knockout":        kOut,
 			"thirdSlots":      thirds,
 			"thirdTable":      bracket.Table(),
-			"tournamentStart": ts,
+			"tournamentStart": forecastDeadline,
 			"locked":          locked(app),
 			"goldenBoot":      goldenBoot,
 		})

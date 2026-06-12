@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pocketbase/pocketbase/core"
@@ -27,8 +29,20 @@ type ofScore struct {
 }
 type ofGoal struct {
 	Name   string `json:"name"`
-	Minute int    `json:"minute"`
+	Minute string `json:"minute"` // "9" or "45+2" stoppage-time format
 	Offset int    `json:"offset"`
+}
+
+// parseMinute converts openfootball minute strings ("9", "45+2") to a
+// sortable integer: base*100 + stoppage, so "45+2" = 4502 > "45" = 4500.
+func parseMinute(s string) int {
+	parts := strings.SplitN(strings.TrimSpace(s), "+", 2)
+	base, _ := strconv.Atoi(parts[0])
+	extra := 0
+	if len(parts) == 2 {
+		extra, _ = strconv.Atoi(parts[1])
+	}
+	return base*100 + extra
 }
 type ofLiveMatch struct {
 	Round  string   `json:"round"`
@@ -46,25 +60,21 @@ type ofLiveMatch struct {
 func firstScorerFromGoals(m ofLiveMatch, rec *core.Record) (teamID, playerName string) {
 	type candidate struct {
 		name   string
-		minute int
-		offset int
+		minute int // parsed via parseMinute
 		home   bool
 	}
 	var goals []candidate
 	for _, g := range m.Goals1 {
-		goals = append(goals, candidate{g.Name, g.Minute, g.Offset, true})
+		goals = append(goals, candidate{g.Name, parseMinute(g.Minute), true})
 	}
 	for _, g := range m.Goals2 {
-		goals = append(goals, candidate{g.Name, g.Minute, g.Offset, false})
+		goals = append(goals, candidate{g.Name, parseMinute(g.Minute), false})
 	}
 	if len(goals) == 0 {
 		return "", ""
 	}
 	sort.Slice(goals, func(i, j int) bool {
-		if goals[i].minute != goals[j].minute {
-			return goals[i].minute < goals[j].minute
-		}
-		return goals[i].offset < goals[j].offset
+		return goals[i].minute < goals[j].minute
 	})
 	first := goals[0]
 	if first.home {

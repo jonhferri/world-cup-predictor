@@ -370,7 +370,7 @@ func ApplyFIFARankings(app core.App) error {
 const DefaultScoringConfig = `{
   "match": {
     "tendency": 5,
-    "exact": 10,
+    "exact": 5,
     "totalGoals": 5,
     "goalDiff": 5,
     "firstTeamScorer": 5,

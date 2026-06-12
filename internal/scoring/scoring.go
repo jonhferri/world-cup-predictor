@@ -12,13 +12,28 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/pocketbase/pocketbase/core"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/oyvhov/world-cup-pool/internal/bracket"
 	"github.com/oyvhov/world-cup-pool/internal/standings"
 	"github.com/oyvhov/world-cup-pool/internal/topscorer"
 )
+
+// normalizeAccents folds diacritics so "Julián" == "Julian" when comparing
+// player names from different sources.
+func normalizeAccents(s string) string {
+	var b strings.Builder
+	for _, r := range norm.NFD.String(s) {
+		if unicode.Is(unicode.Mn, r) {
+			continue // drop combining marks
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return b.String()
+}
 
 // ---- Config ----
 
@@ -178,7 +193,7 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 	if m.FirstTeamScorer != "" && m.FirstTeamScorer == p.FirstTeam {
 		r.FirstTeamScorer = cfg.Match.FirstTeamScorer
 	}
-	if m.FirstPlayerScorer != "" && strings.EqualFold(m.FirstPlayerScorer, p.FirstPlayer) {
+	if m.FirstPlayerScorer != "" && normalizeAccents(m.FirstPlayerScorer) == normalizeAccents(p.FirstPlayer) {
 		r.FirstPlayerScorer = cfg.Match.FirstPlayerScorer
 	}
 	return r

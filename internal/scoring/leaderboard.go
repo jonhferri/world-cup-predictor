@@ -30,14 +30,17 @@ type Row struct {
 	ForecastPoints int     `json:"forecastPoints"`
 	Predicted      int     `json:"predicted"` // # matches the user has tipped
 	// Tiebreakers (also returned for transparency).
-	ExactScores    int `json:"exactScores"`
-	CorrectWinners int `json:"correctWinners"`
-	GdDeviation    int `json:"gdDeviation"`
+	ExactScores       int `json:"exactScores"`
+	CorrectWinners    int `json:"correctWinners"`
+	GdDeviation       int `json:"gdDeviation"`
+	FirstTeamScorers  int `json:"firstTeamScorers"`
+	FirstPlayerScorers int `json:"firstPlayerScorers"`
 	// Forecast correct-pick counts (groups/advance/champion + R32..FINAL).
-	Forecast  map[string]int `json:"forecast"`
-	RankDelta int            `json:"rankDelta"` // +N = moved up N spots since last matchday, 0 = unchanged/no data
-	lastEdit  string         // earliest-wins; not serialized
-	prevTotal int            // for delta computation only, not serialized
+	Forecast   map[string]int    `json:"forecast"`
+	AwardPicks map[string]string `json:"awardPicks,omitempty"`
+	RankDelta  int               `json:"rankDelta"` // +N = moved up N spots since last matchday, 0 = unchanged/no data
+	lastEdit   string            // earliest-wins; not serialized
+	prevTotal  int               // for delta computation only, not serialized
 }
 
 // Leaderboard builds a League's standings using its scoring config and the
@@ -111,6 +114,12 @@ func Leaderboard(app core.App, leagueID string) (map[string]any, error) {
 				row.CorrectWinners++
 			}
 			row.GdDeviation += comp.GdDev
+			if comp.FirstTeamScorer > 0 {
+				row.FirstTeamScorers++
+			}
+			if comp.FirstPlayerScorer > 0 {
+				row.FirstPlayerScorers++
+			}
 		}
 
 		if fs, err := app.FindFirstRecordByFilter("forecast_scores",
@@ -137,6 +146,17 @@ func Leaderboard(app core.App, leagueID string) (map[string]any, error) {
 					f[k] = v
 				}
 				row.Forecast = f
+			}
+		}
+
+		if fc, err := app.FindFirstRecordByFilter("forecasts",
+			"user = {:u}", map[string]any{"u": uid}); err == nil {
+			row.AwardPicks = map[string]string{
+				"goldenBoot":  fc.GetString("goldenBootPlayerName"),
+				"goldenBall":  fc.GetString("goldenBallPlayer"),
+				"goldenGlove": fc.GetString("goldenGlovePlayer"),
+				"bestYoung":   fc.GetString("bestYoungPlayer"),
+				"mostAssists": fc.GetString("mostAssistsPlayer"),
 			}
 		}
 

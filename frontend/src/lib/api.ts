@@ -47,7 +47,10 @@ export interface LeaderboardRow {
 	exactScores: number;
 	correctWinners: number;
 	gdDeviation: number;
+	firstTeamScorers: number;
+	firstPlayerScorers: number;
 	forecast?: Record<string, number>;
+	awardPicks?: Record<string, string>;
 	rankDelta: number; // +N = moved up N spots since last matchday, 0 = no change or no data
 }
 

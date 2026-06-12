@@ -273,11 +273,13 @@
 						<th class="num ext" title={goldenBootLabel}>{language.text('TS', 'TS', 'GB')}</th>
 						<th class="num ext" title={language.text('Rett vinner tippet', 'Rett vinnar tippa', 'Correct winner predicted')}>{language.text('Vinn', 'Vinn', 'Win')}</th>
 					{:else}
-						<th class="num ext" title={language.text('Kamper tippet', 'Kampar tippa', 'Matches tipped')}>Tips</th>
-						<th class="num ext" title={language.text('VM-tipspoeng', 'VM-tipspoeng', 'World Cup tip points')}>{language.text('VM', 'VM', 'WC')}</th>
-						<th class="num ext" title={language.text('Eksakte resultater (tie-break 1)', 'Eksakte resultat (tie-break 1)', 'Exact scores (tiebreaker 1)')}>{language.text('Eksakt', 'Eksakt', 'Exact')}</th>
-						<th class="num ext" title={language.text('Rette vinnere (tie-break 2)', 'Rette vinnarar (tie-break 2)', 'Correct winners (tiebreaker 2)')}>{language.text('Vinn', 'Vinn', 'Win')}</th>
-						<th class="num ext" title={language.text('Målforskjell-feil (tie-break 3, lavere er bedre)', 'Målforskjell-feil (tie-break 3, lågare er betre)', 'Goal-difference error (tiebreaker 3, lower is better)')}>GD&Delta;</th>
+						<th class="num ext" title="Matches tipped">Tips</th>
+						<th class="num ext" title="World Cup tip points">WC</th>
+						<th class="num ext" title="Exact scores (tiebreaker 1)">Exact</th>
+						<th class="num ext" title="Correct winners (tiebreaker 2)">Win</th>
+						<th class="num ext" title="Goal-difference error (tiebreaker 3, lower is better)">GD&Delta;</th>
+						<th class="num ext" title="First team to score correct">FTS</th>
+						<th class="num ext" title="First player to score correct">FPS</th>
 					{/if}
 					<th class="num pts">{language.text('Poeng', 'Poeng', 'Points')}</th>
 				</tr>
@@ -331,6 +333,8 @@
 							<td class="num ext digits">{r.exactScores}</td>
 							<td class="num ext digits">{r.correctWinners}</td>
 							<td class="num ext digits">{r.gdDeviation}</td>
+							<td class="num ext digits">{r.firstTeamScorers ?? 0}</td>
+							<td class="num ext digits">{r.firstPlayerScorers ?? 0}</td>
 						{/if}
 						<td class="num pts digits">{r[tab]}</td>
 					</tr>
@@ -338,25 +342,34 @@
 						<tr class="detail">
 							<td colspan="3">
 								{#if fcView}
+									{@const ap = r.awardPicks ?? {}}
 									<div class="stats">
-										<span><i>{language.text('Rett gruppeplassering', 'Rett gruppeplassering', 'Correct group placement')}</i><b>{f.groups ?? 0}</b></span>
-										<span><i>{language.text('Lag videre', 'Lag vidare', 'Advanced team')}</i><b>{f.advance ?? 0}</b></span>
-										<span><i>{language.text('Nådde 32-delsfinale', 'Nådde 32-delsfinale', 'Reached Round of 32')}</i><b>{f.R32 ?? 0}</b></span>
-										<span><i>{language.text('Nådde åttedelsfinale', 'Nådde åttedelsfinale', 'Reached Round of 16')}</i><b>{f.R16 ?? 0}</b></span>
-										<span><i>{language.text('Nådde kvartfinale', 'Nådde kvartfinale', 'Reached quarter-final')}</i><b>{f.QF ?? 0}</b></span>
-										<span><i>{language.text('Nådde semifinale', 'Nådde semifinale', 'Reached semi-final')}</i><b>{f.SF ?? 0}</b></span>
-										<span><i>{language.text('Nådde finale', 'Nådde finale', 'Reached final')}</i><b>{f.FINAL ?? 0}</b></span>
-										<span><i>{goldenBootLabel}</i><b>{f.goldenBoot ? language.text('Ja', 'Ja', 'Yes') : language.text('Nei', 'Nei', 'No')} · {f.goldenBootPoints ?? 0} p</b></span>
-										<span><i>{language.text('Rett vinner', 'Rett vinnar', 'Correct winner')}</i><b>{f.champion ? language.text('Ja', 'Ja', 'Yes') : language.text('Nei', 'Nei', 'No')}</b></span>
+										<span><i>Correct group placement</i><b>{f.groups ?? 0}</b></span>
+										<span><i>Teams advanced correctly</i><b>{f.advance ?? 0}</b></span>
+										<span><i>Round of 32</i><b>{f.R32 ?? 0}</b></span>
+										<span><i>Round of 16</i><b>{f.R16 ?? 0}</b></span>
+										<span><i>Quarter-final</i><b>{f.QF ?? 0}</b></span>
+										<span><i>Semi-final</i><b>{f.SF ?? 0}</b></span>
+										<span><i>Final</i><b>{f.FINAL ?? 0}</b></span>
+										<span><i>Correct winner</i><b>{f.champion ? 'Yes' : 'No'}</b></span>
+									</div>
+									<div class="award-picks">
+										<span><i>⚽ Golden Boot</i><b>{ap.goldenBoot || '–'}</b></span>
+										<span><i>🏆 Golden Ball</i><b>{ap.goldenBall || '–'}</b></span>
+										<span><i>🧤 Golden Glove</i><b>{ap.goldenGlove || '–'}</b></span>
+										<span><i>⭐ Best Young Player</i><b>{ap.bestYoung || '–'}</b></span>
+										<span><i>🎯 Most Assists</i><b>{ap.mostAssists || '–'}</b></span>
 									</div>
 								{:else}
 									<div class="stats">
-										<span><i>{language.text('Kamper tippet', 'Kampar tippa', 'Matches tipped')}</i><b>{r.predicted}</b></span>
-										<span><i>{language.text('Kamptipspoeng', 'Kamptipspoeng', 'Match tip points')}</i><b>{r.tipsPoints}</b></span>
-										<span><i>{language.text('VM-tipspoeng', 'VM-tipspoeng', 'World Cup tip points')}</i><b>{r.forecastPoints}</b></span>
-										<span><i>{language.text('Eksakte resultater', 'Eksakte resultat', 'Exact scores')}</i><b>{r.exactScores}</b></span>
-										<span><i>{language.text('Rette vinnere', 'Rette vinnarar', 'Correct winners')}</i><b>{r.correctWinners}</b></span>
-										<span><i>{language.text('Målforskjell-feil', 'Målforskjell-feil', 'Goal-difference error')}</i><b>{r.gdDeviation}</b></span>
+										<span><i>Matches tipped</i><b>{r.predicted}</b></span>
+										<span><i>Match tip points</i><b>{r.tipsPoints}</b></span>
+										<span><i>World Cup tip points</i><b>{r.forecastPoints}</b></span>
+										<span><i>Exact scores</i><b>{r.exactScores}</b></span>
+										<span><i>Correct winners</i><b>{r.correctWinners}</b></span>
+										<span><i>Goal-difference error</i><b>{r.gdDeviation}</b></span>
+										<span><i>First team to score ✓</i><b>{r.firstTeamScorers ?? 0}</b></span>
+										<span><i>First player to score ✓</i><b>{r.firstPlayerScorers ?? 0}</b></span>
 									</div>
 								{/if}
 							</td>
@@ -897,6 +910,36 @@
 	.stats b {
 		font-family: var(--font-mono);
 	}
+	.award-picks {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.4rem 1rem;
+		margin-top: 0.5rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid var(--border);
+	}
+	.award-picks span {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 0.6rem;
+		padding: 0.3rem 0;
+		border-bottom: 1px solid var(--border);
+		font-size: 0.85rem;
+	}
+	.award-picks i {
+		color: var(--muted);
+		font-style: normal;
+		white-space: nowrap;
+	}
+	.award-picks b {
+		font-weight: 600;
+		text-align: right;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: 12rem;
+	}
 
 	@media (min-width: 760px) {
 		.ext {
@@ -932,7 +975,8 @@
 		}
 	}
 	@media (max-width: 560px) {
-		.stats {
+		.stats,
+		.award-picks {
 			grid-template-columns: 1fr;
 		}
 		.candidate-row,

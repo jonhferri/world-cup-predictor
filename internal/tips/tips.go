@@ -9,6 +9,7 @@ package tips
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,33 @@ import (
 
 	"github.com/oyvhov/world-cup-pool/internal/clock"
 )
+
+// groupStageSiblingFilter builds a PocketBase filter that matches all group-stage
+// matches in the same round-set as roundLabel. WC 2026 has 17 matchdays split:
+//   - Matchday 1–7  → group set 1  (first match each team plays)
+//   - Matchday 8–13 → group set 2  (second match)
+//   - Matchday 14–17 → group set 3  (third match)
+func groupStageSiblingFilter(roundLabel string) (filter string, params map[string]any) {
+	n, _ := strconv.Atoi(strings.TrimPrefix(roundLabel, "Matchday "))
+	var lo, hi int
+	switch {
+	case n >= 14:
+		lo, hi = 14, 17
+	case n >= 8:
+		lo, hi = 8, 13
+	default:
+		lo, hi = 1, 7
+	}
+	params = make(map[string]any)
+	parts := make([]string, 0, hi-lo+1)
+	for i := lo; i <= hi; i++ {
+		key := fmt.Sprintf("rl%d", i)
+		params[key] = fmt.Sprintf("Matchday %d", i)
+		parts = append(parts, fmt.Sprintf("roundLabel = {:%s}", key))
+	}
+	filter = "(" + strings.Join(parts, " || ") + `) && id != {:mid}`
+	return filter, params
+}
 
 func matchKickoff(m *core.Record) time.Time {
 	return m.GetDateTime("kickoff").Time()
@@ -45,13 +73,6 @@ func SetBypass(b bool) { bypass.Store(b) }
 func validateTurbo(app core.App, tip *core.Record, match *core.Record) error {
 	stage := match.GetString("stage")
 
-	// Prevent unsetting turbo once applied.
-	if tip.Id != "" && !tip.GetBool("turbo") {
-		if old, err := app.FindRecordById("tips", tip.Id); err == nil && old.GetBool("turbo") {
-			return apis.NewBadRequestError("turbo cannot be removed once applied", nil)
-		}
-	}
-
 	if !tip.GetBool("turbo") {
 		return nil
 	}
@@ -68,9 +89,8 @@ func validateTurbo(app core.App, tip *core.Record, match *core.Record) error {
 	var matchFilter string
 	var filterParams map[string]any
 	if stage == "group" {
-		rl := match.GetString("roundLabel")
-		matchFilter = `roundLabel = {:rl} && id != {:mid}`
-		filterParams = map[string]any{"rl": rl, "mid": match.Id}
+		matchFilter, filterParams = groupStageSiblingFilter(match.GetString("roundLabel"))
+		filterParams["mid"] = match.Id
 	} else {
 		matchFilter = `stage = {:s} && id != {:mid}`
 		filterParams = map[string]any{"s": stage, "mid": match.Id}
@@ -279,6 +299,7 @@ func Register(app core.App, se *core.ServeEvent) {
 				"advancer":    t.GetString("advancer"),
 				"firstTeam":   t.GetString("firstTeam"),
 				"firstPlayer": t.GetString("firstPlayer"),
+				"turbo":       t.GetBool("turbo"),
 				"points":      sr.points,
 				"components":  sr.components,
 			}

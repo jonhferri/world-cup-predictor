@@ -180,7 +180,7 @@ class TipsStore {
 			if (!tip.turbo) continue;
 			const m = this.matches.find((x) => x.id === matchId);
 			if (!m) continue;
-			result.add(m.stage === 'group' ? m.roundLabel : m.stage);
+			result.add(m.stage === 'group' ? groupStageBucket(m.roundLabel) : m.stage);
 		}
 		return result;
 	}
@@ -274,6 +274,15 @@ class TipsStore {
 }
 
 export const tipsStore = new TipsStore();
+
+// groupStageBucket maps "Matchday N" → a stable turbo-slot key.
+// WC 2026: 1-7 = group-1, 8-13 = group-2, 14-17 = group-3.
+export function groupStageBucket(roundLabel: string): string {
+	const n = parseInt(roundLabel.replace('Matchday ', ''), 10);
+	if (n >= 14) return 'group-3';
+	if (n >= 8) return 'group-2';
+	return 'group-1';
+}
 
 export function isLocked(m: Match): boolean {
 	return serverClock.now() >= new Date(m.kickoff).getTime();

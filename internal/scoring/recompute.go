@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -125,6 +126,32 @@ func Register(app core.App, se *core.ServeEvent) {
 	})
 
 	se.Router.POST("/api/admin/recompute", func(e *core.RequestEvent) error {
+		if err := Recompute(app); err != nil {
+			return e.JSON(500, map[string]string{"error": err.Error()})
+		}
+		return e.JSON(200, map[string]string{"status": "ok"})
+	}).Bind(apis.RequireSuperuserAuth())
+
+	// POST /api/admin/fix-tip-turbo — force-set a tip's turbo flag via raw SQL
+	// (bypasses the lock hook) then trigger a full recompute. Used to correct
+	// tips that were boosted incorrectly on already-finished matches.
+	se.Router.POST("/api/admin/fix-tip-turbo", func(e *core.RequestEvent) error {
+		var body struct {
+			TipId string `json:"tipId"`
+			Turbo bool   `json:"turbo"`
+		}
+		if err := e.BindBody(&body); err != nil || body.TipId == "" {
+			return apis.NewBadRequestError("tipId required", nil)
+		}
+		turboVal := 0
+		if body.Turbo {
+			turboVal = 1
+		}
+		if _, err := app.DB().NewQuery(
+			"UPDATE tips SET turbo={:t} WHERE id={:id}",
+		).Bind(dbx.Params{"t": turboVal, "id": body.TipId}).Execute(); err != nil {
+			return e.JSON(500, map[string]string{"error": err.Error()})
+		}
 		if err := Recompute(app); err != nil {
 			return e.JSON(500, map[string]string{"error": err.Error()})
 		}

@@ -4,6 +4,7 @@
 		tipsStore,
 		isLocked,
 		teamsResolved,
+		groupStageBucket,
 		type Match,
 		type FriendTip,
 		type TipComponents,
@@ -43,7 +44,7 @@
 	);
 
 	// Turbo state.
-	let stageGroupKey = $derived(match.stage === 'group' ? match.roundLabel : match.stage);
+	let stageGroupKey = $derived(match.stage === 'group' ? groupStageBucket(match.roundLabel) : match.stage);
 	let isAutoTurbo = $derived(match.stage === 'FINAL' || match.stage === '3RD');
 
 	// Editable working copy.
@@ -325,14 +326,14 @@
 			<span class="spacer"></span>
 			{#if isAutoTurbo}
 				<span class="turbo-pill auto" title="Match automatically doubled">⚡ 2×</span>
-			{:else if existing?.turbo}
+			{:else if locked && existing?.turbo}
 				<span class="turbo-pill on" title="Turbo active – points doubled">⚡ 2×</span>
-			{:else if !locked && !tipsStore.turboedStageGroups().has(stageGroupKey)}
+			{:else if !locked && (!tipsStore.turboedStageGroups().has(stageGroupKey) || existing?.turbo)}
 				<button
 					class="turbo-btn"
 					class:on={turbo}
-					onclick={() => { if (!existing?.turbo) turbo = !turbo; }}
-					title={turbo ? 'Turbo applied – save to confirm' : 'Use 2× turbo on this match'}
+					onclick={() => { turbo = !turbo; }}
+					title={turbo ? 'Turbo on – click to remove (save to confirm)' : 'Use 2× turbo on this match'}
 				>⚡</button>
 			{/if}
 			{#if played}
@@ -448,7 +449,7 @@
 								{#each visibleFriends as f (f.userId)}
 									{@const c = f.components}
 									<tr class:fme={f.isMe}>
-										<td class="fname">{f.name}</td>
+										<td class="fname">{f.name}{#if f.turbo} <span class="fturbo" title="Turbo active">⚡</span>{/if}</td>
 										<td class="ftip">
 											<span
 												class="fscore"
@@ -635,6 +636,7 @@
 														onclick={() => {
 															firstPlayer = p.name;
 															playerSearch = p.name;
+															firstTeam = p.teamId;
 															playerDropdownOpen = false;
 														}}
 														class:selected={firstPlayer === p.name}
@@ -1092,6 +1094,7 @@
 	}
 	.fok { color: var(--accent); }
 	.fperfect { color: var(--gold); }
+	.fturbo { font-size: 0.75rem; opacity: 0.8; }
 	.friends-actions {
 		display: flex;
 		justify-content: center;

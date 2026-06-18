@@ -216,7 +216,34 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 	return r
 }
 
-func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
+// resolvePlayerTeam looks up the team record ID for the given player name.
+// It first tries an exact match, then falls back to normalized comparison
+// (diacritics stripped, lowercase) so "Julián" matches "Julian".
+func resolvePlayerTeam(app core.App, playerName string) string {
+	if p, err := app.FindFirstRecordByFilter("players",
+		"name = {:n}", map[string]any{"n": playerName}); err == nil {
+		return p.GetString("teamId")
+	}
+	players, err := app.FindRecordsByFilter("players", "id != ''", "", 0, 0)
+	if err != nil {
+		return ""
+	}
+	norm := normalizeName(playerName)
+	for _, p := range players {
+		if normalizeName(p.GetString("name")) == norm {
+			return p.GetString("teamId")
+		}
+	}
+	return ""
+}
+
+func scoreTip(app core.App, cfg Config, match, tip *core.Record) tipComponents {
+	firstTeam := tip.GetString("firstTeam")
+	if firstTeam == "" {
+		if player := tip.GetString("firstPlayer"); player != "" {
+			firstTeam = resolvePlayerTeam(app, player)
+		}
+	}
 	r := scoreValues(cfg,
 		MatchResult{
 			Stage:             match.GetString("stage"),
@@ -234,7 +261,7 @@ func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
 			EtH:         tip.GetInt("etHome"),
 			EtA:         tip.GetInt("etAway"),
 			Advancer:    tip.GetString("advancer"),
-			FirstTeam:   tip.GetString("firstTeam"),
+			FirstTeam:   firstTeam,
 			FirstPlayer: tip.GetString("firstPlayer"),
 		},
 	)

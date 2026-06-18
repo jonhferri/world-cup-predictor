@@ -76,7 +76,7 @@
 	);
 
 	$effect(() => {
-		if (!canEdit || !match.homeTeam || !match.awayTeam) return;
+		if (!bodyVisible || !match.homeTeam || !match.awayTeam) return;
 		tipsStore
 			.playersForTeams([match.homeTeam, match.awayTeam])
 			.then((list) => (players = list))
@@ -407,13 +407,15 @@
 						<p class="muted">{t.tipCard.noTipLocked}</p>
 				{/if}
 				{#if existing?.firstTeam || existing?.firstPlayer}
+					{@const resolvedFirstTeam = existing.firstTeam || (existing.firstPlayer ? (players.find((p) => p.name === existing.firstPlayer)?.teamId ?? '') : '')}
+					{@const isAutoTeam = !existing.firstTeam && !!resolvedFirstTeam}
 					<div class="first-scorer-locked">
-						{#if existing.firstTeam}
-							{@const ft = tipsStore.team(existing.firstTeam)}
+						{#if resolvedFirstTeam}
+							{@const ft = tipsStore.team(resolvedFirstTeam)}
 							<span class="fs-label">1st team:</span>
-							<span class="fs-val">
+							<span class="fs-val" class:fs-val-auto={isAutoTeam}>
 								{#if ft}<Flag iso2={ft.iso2} code={ft.fifaCode} />{/if}
-								{ft ? teamDisplayName(ft) : existing.firstTeam}
+								{ft ? teamDisplayName(ft) : resolvedFirstTeam}
 							</span>
 						{/if}
 						{#if existing.firstPlayer}
@@ -448,6 +450,8 @@
 							<tbody>
 								{#each visibleFriends as f (f.userId)}
 									{@const c = f.components}
+									{@const fResolvedTeam = f.firstTeam || (f.firstPlayer ? (players.find((p) => p.name === f.firstPlayer)?.teamId ?? '') : '')}
+									{@const fAutoTeam = !f.firstTeam && !!fResolvedTeam}
 									<tr class:fme={f.isMe}>
 										<td class="fname">{f.name}{#if f.turbo} <span class="fturbo" title="Turbo active">⚡</span>{/if}</td>
 										<td class="ftip">
@@ -471,13 +475,13 @@
 											{/if}
 										</td>
 										<td class="ftip fscorer">
-											{#if f.firstTeam}
-												<span class="fts" class:fts-ok={c && c.firstTeamScorer > 0}>{tipsStore.team(f.firstTeam)?.fifaCode ?? teamDisplayName(tipsStore.team(f.firstTeam))}</span>
+											{#if fResolvedTeam}
+												<span class="fts" class:fts-ok={c && c.firstTeamScorer > 0} class:fts-auto={fAutoTeam}>{tipsStore.team(fResolvedTeam)?.fifaCode ?? teamDisplayName(tipsStore.team(fResolvedTeam))}</span>
 											{/if}
 											{#if f.firstPlayer}
 												<span class="fps" class:fps-ok={c && c.firstPlayerScorer > 0}>{f.firstPlayer.split(' ').pop()}</span>
 											{/if}
-											{#if !f.firstTeam && !f.firstPlayer}
+											{#if !fResolvedTeam && !f.firstPlayer}
 												<span class="muted">—</span>
 											{/if}
 										</td>
@@ -1346,6 +1350,13 @@
 		align-items: center;
 		gap: 0.3rem;
 		font-weight: 600;
+	}
+	.fs-val-auto {
+		opacity: 0.5;
+		font-weight: 500;
+	}
+	.fts-auto {
+		opacity: 0.5;
 	}
 	.turbo-btn {
 		display: inline-flex;

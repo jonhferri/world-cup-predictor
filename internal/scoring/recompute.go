@@ -38,7 +38,7 @@ func Recompute(app core.App) error {
 				"match = {:m}", "", 0, 0, map[string]any{"m": match.Id})
 			for _, tip := range tipList {
 				for cid, cfg := range configs {
-					comp := scoreTip(cfg, match, tip)
+					comp := scoreTip(tx, cfg, match, tip)
 					rec := core.NewRecord(msCol)
 					rec.Set("user", tip.GetString("user"))
 					rec.Set("match", match.Id)

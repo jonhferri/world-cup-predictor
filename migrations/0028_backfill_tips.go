@@ -47,14 +47,19 @@ func init() {
 		}
 
 		// --- Helper: upsert a group-stage tip ---
+		// Returns nil (skips) if the user, team, or match doesn't exist in this environment.
 		upsertGroupTip := func(userID, home, away string, ftH, ftA int, firstPlayer, firstTeamName string) error {
+			// Verify the user exists; skip silently if not (prod-only data).
+			if _, err := app.FindRecordById("users", userID); err != nil {
+				return nil
+			}
 			match, err := matchByTeams(home, away)
 			if err != nil {
-				return err
+				return nil
 			}
 			firstTeamID, err := teamID(firstTeamName)
 			if err != nil {
-				return err
+				return nil
 			}
 			tip, err := app.FindFirstRecordByFilter("tips",
 				"user = {:u} && match = {:m}",
@@ -111,14 +116,12 @@ func init() {
 			return err
 		}
 
-		// Remove turbo boost from tip bgugcb6a1ao14mu
-		boostTip, err := app.FindRecordById("tips", "bgugcb6a1ao14mu")
-		if err != nil {
-			return err
-		}
-		boostTip.Set("turbo", false)
-		if err := app.Save(boostTip); err != nil {
-			return err
+		// Remove turbo boost from tip bgugcb6a1ao14mu — skip if not found (prod-only).
+		if boostTip, err := app.FindRecordById("tips", "bgugcb6a1ao14mu"); err == nil {
+			boostTip.Set("turbo", false)
+			if err := app.Save(boostTip); err != nil {
+				return err
+			}
 		}
 
 		// Fix tips that have a firstPlayer set but no firstTeam.

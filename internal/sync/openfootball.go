@@ -171,66 +171,72 @@ func openfootballSync(ctx context.Context, app core.App) error {
 		}
 	}
 
+	// For knockout matches where the JSON has resolved the actual team names,
+	// write homeTeam/awayTeam directly from the JSON rather than relying on
+	// bracket calculation — the JSON is the authoritative source.
+	teamIDCache := map[string]string{}
+	lookupTeam := func(name string) string {
+		if id, ok := teamIDCache[name]; ok {
+			return id
+		}
+		r, err := app.FindFirstRecordByFilter("teams", "name = {:n}", map[string]any{"n": name})
+		if err != nil || r == nil {
+			return ""
+		}
+		teamIDCache[name] = r.Id
+		return r.Id
+	}
+	for _, m := range doc.Matches {
+		if m.Num == 0 {
+			continue // group stage, handled by seeding
+		}
+		if isBracketLabel(m.Team1) && isBracketLabel(m.Team2) {
+			continue // teams not yet determined in the JSON
+		}
+		rec := byExt[seed.ExtID(m.Round, m.Num, m.Group, m.Team1, m.Team2)]
+		if rec == nil {
+			continue
+		}
+		changed := false
+		if !isBracketLabel(m.Team1) && rec.GetString("homeTeam") == "" {
+			if id := lookupTeam(m.Team1); id != "" {
+				rec.Set("homeTeam", id)
+				changed = true
+			}
+		}
+		if !isBracketLabel(m.Team2) && rec.GetString("awayTeam") == "" {
+			if id := lookupTeam(m.Team2); id != "" {
+				rec.Set("awayTeam", id)
+				changed = true
+			}
+		}
+		if changed {
+			_ = app.Save(rec)
+		}
+	}
+	if err := ResolveBracket(app); err != nil {
+		return err
+	}
+	activateLiveMatches(app)
+	return nil
+}
+
 // isBracketLabel reports whether s is a placeholder bracket reference rather
 // than a real team name. Bracket labels look like: "W73", "L101", "1A", "2B",
 // "3A/B/C/D/F".
 func isBracketLabel(s string) bool {
-  if s == "" {
-    return true
-  }
-  switch s[0] {
-  case 'W', 'L':
-    _, err := strconv.Atoi(s[1:])
-    return err == nil
-  case '1', '2', '3':
-    return true
-  }
-  return false
+	if s == "" {
+		return true
+	}
+	switch s[0] {
+	case 'W', 'L':
+		_, err := strconv.Atoi(s[1:])
+		return err == nil
+	case '1', '2', '3':
+		return true
+	}
+	return false
 }
-
-  // For knockout matches where the JSON has resolved the actual team names,
-  // write homeTeam/awayTeam directly from the JSON rather than relying on
-  // bracket calculation — the JSON is the authoritative source.
-  teamIDCache := map[string]string{}
-  lookupTeam := func(name string) string {
-    if id, ok := teamIDCache[name]; ok {
-      return id
-    }
-    r, err := app.FindFirstRecordByFilter("teams", "name = {:n}", map[string]any{"n": name})
-    if err != nil || r == nil {
-      return ""
-    }
-    teamIDCache[name] = r.Id
-    return r.Id
-  }
-  for _, m := range doc.Matches {
-    if m.Num == 0 {
-      continue // group stage, handled by seeding
-    }
-    if isBracketLabel(m.Team1) && isBracketLabel(m.Team2) {
-      continue // teams not yet determined in the JSON
-    }
-    rec := byExt[seed.ExtID(m.Round, m.Num, m.Group, m.Team1, m.Team2)]
-    if rec == nil {
-      continue
-    }
-    changed := false
-    if !isBracketLabel(m.Team1) && rec.GetString("homeTeam") == "" {
-      if id := lookupTeam(m.Team1); id != "" {
-        rec.Set("homeTeam", id)
-        changed = true
-      }
-    }
-    if !isBracketLabel(m.Team2) && rec.GetString("awayTeam") == "" {
-      if id := lookupTeam(m.Team2); id != "" {
-        rec.Set("awayTeam", id)
-        changed = true
-      }
-    }
-    if changed {
-      _ = app.Save(rec)
-    }
-  }
 
 // activateLiveMatches marks any match whose kickoff has passed but that still
 // shows as "scheduled" as "live". This makes friends' picks visible to all

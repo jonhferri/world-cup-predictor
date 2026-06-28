@@ -198,14 +198,14 @@ func openfootballSync(ctx context.Context, app core.App) error {
 			continue
 		}
 		changed := false
-		if !isBracketLabel(m.Team1) && rec.GetString("homeTeam") == "" {
-			if id := lookupTeam(m.Team1); id != "" {
+		if !isBracketLabel(m.Team1) {
+			if id := lookupTeam(m.Team1); id != "" && rec.GetString("homeTeam") != id {
 				rec.Set("homeTeam", id)
 				changed = true
 			}
 		}
-		if !isBracketLabel(m.Team2) && rec.GetString("awayTeam") == "" {
-			if id := lookupTeam(m.Team2); id != "" {
+		if !isBracketLabel(m.Team2) {
+			if id := lookupTeam(m.Team2); id != "" && rec.GetString("awayTeam") != id {
 				rec.Set("awayTeam", id)
 				changed = true
 			}

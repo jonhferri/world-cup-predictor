@@ -62,6 +62,18 @@ type Config struct {
 		GoalDiff          int `json:"goalDiff"`          // correct goal difference
 		FirstTeamScorer   int `json:"firstTeamScorer"`   // correct first team to score
 		FirstPlayerScorer int `json:"firstPlayerScorer"` // correct first player to score
+		// KO-specific FT scoring (applied to the 90' score)
+		KOFtGoalDiff  int `json:"koFtGoalDiff"`  // correct goal difference at FT
+		KOFtExactHome int `json:"koFtExactHome"` // exact home goals at FT
+		KOFtExactAway int `json:"koFtExactAway"` // exact away goals at FT
+		KOFtExact     int `json:"koFtExact"`     // both FT goals exactly right
+		// KO-specific ET scoring (only if match went to ET and user predicted FT draw)
+		KOEtGoalDiff  int `json:"koEtGoalDiff"`  // correct goal difference at ET
+		KOEtExactHome int `json:"koEtExactHome"` // exact home goals at ET (cumulative)
+		KOEtExactAway int `json:"koEtExactAway"` // exact away goals at ET (cumulative)
+		KOEtExact     int `json:"koEtExact"`     // both ET goals exactly right
+		// Advancer (KO only)
+		KOAdvancer int `json:"koAdvancer"` // correct team to advance
 	} `json:"match"`
 	Forecast struct {
 		GroupPosition     int            `json:"groupPosition"`     // per exact final position
@@ -75,12 +87,40 @@ type Config struct {
 func loadConfig(rec *core.Record) Config {
 	var c Config
 	_ = json.Unmarshal([]byte(rec.GetString("config")), &c)
-	// Backward-compat default for configs predating the "advance" rule.
+	// Backward-compat defaults.
 	if c.Forecast.Advance == 0 {
 		c.Forecast.Advance = 1
 	}
 	if c.Forecast.GoldenBootWinner == 0 {
 		c.Forecast.GoldenBootWinner = 15
+	}
+	// KO fields default to 5 if not present in older configs.
+	if c.Match.KOFtGoalDiff == 0 {
+		c.Match.KOFtGoalDiff = 5
+	}
+	if c.Match.KOFtExactHome == 0 {
+		c.Match.KOFtExactHome = 5
+	}
+	if c.Match.KOFtExactAway == 0 {
+		c.Match.KOFtExactAway = 5
+	}
+	if c.Match.KOFtExact == 0 {
+		c.Match.KOFtExact = 5
+	}
+	if c.Match.KOEtGoalDiff == 0 {
+		c.Match.KOEtGoalDiff = 5
+	}
+	if c.Match.KOEtExactHome == 0 {
+		c.Match.KOEtExactHome = 5
+	}
+	if c.Match.KOEtExactAway == 0 {
+		c.Match.KOEtExactAway = 5
+	}
+	if c.Match.KOEtExact == 0 {
+		c.Match.KOEtExact = 5
+	}
+	if c.Match.KOAdvancer == 0 {
+		c.Match.KOAdvancer = 5
 	}
 	return c
 }
@@ -123,18 +163,32 @@ func sign(n int) int {
 // ---- Match (Tip) scoring ----
 
 type tipComponents struct {
-	Tendency          int  `json:"tendency"` // correct result / who advances
-	Exact             int  `json:"exact"`
-	TotalGoals        int  `json:"totalGoals"`
-	GoalDiff          int  `json:"goalDiff"`
+	Tendency          int  `json:"tendency"` // group: correct 1/X/2; not used for KO
+	Exact             int  `json:"exact"`    // group only
+	TotalGoals        int  `json:"totalGoals"` // group only (exact home or away goals)
+	GoalDiff          int  `json:"goalDiff"`   // group only
 	GdDev             int  `json:"gdDev"` // |predicted GD - actual GD| (tiebreaker only)
 	FirstTeamScorer   int  `json:"firstTeamScorer"`
 	FirstPlayerScorer int  `json:"firstPlayerScorer"`
-	Turbo             bool `json:"turbo"` // points doubled (user turbo or FINAL/3RD auto)
+	// KO-specific components
+	KOFtGoalDiff  int `json:"koFtGoalDiff"`
+	KOFtExactHome int `json:"koFtExactHome"`
+	KOFtExactAway int `json:"koFtExactAway"`
+	KOFtExact     int `json:"koFtExact"`
+	KOEtGoalDiff  int `json:"koEtGoalDiff"`
+	KOEtExactHome int `json:"koEtExactHome"`
+	KOEtExactAway int `json:"koEtExactAway"`
+	KOEtExact     int `json:"koEtExact"`
+	KOAdvancer    int `json:"koAdvancer"`
+	Turbo         bool `json:"turbo"` // points doubled (user turbo or FINAL/3RD auto)
 }
 
 func (c tipComponents) points() int {
-	base := c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff + c.FirstTeamScorer + c.FirstPlayerScorer
+	base := c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff +
+		c.FirstTeamScorer + c.FirstPlayerScorer +
+		c.KOFtGoalDiff + c.KOFtExactHome + c.KOFtExactAway + c.KOFtExact +
+		c.KOEtGoalDiff + c.KOEtExactHome + c.KOEtExactAway + c.KOEtExact +
+		c.KOAdvancer
 	if c.Turbo {
 		return base * 2
 	}
@@ -159,54 +213,89 @@ type TipPrediction struct {
 	FirstPlayer string
 }
 
-// scoreValues is the pure scoring core (see scoring_test.go). Max 6 per game:
-//   - "correct result" (Tendency): group = 1/X/2 on 90'; knockout = the team
-//     that advances (no draw outcome).
-//   - exact / total goals / goal difference (1 each) compare the reference
-//     score: 90' for group and KO decided in 90'; the after-extra-time score
-//     when a KO goes to extra time (using the user's ET prediction if they
-//     predicted a 90' draw, else their decisive 90' prediction).
+// scoreValues is the pure scoring core (see scoring_test.go).
+//
+// Group matches: Tendency (correct 1/X/2) + exact home goals + exact away goals +
+// exact score bonus + goal difference + first team/player scorer.
+//
+// Knockout matches use a separate FT+ET structure:
+//   - FT (max 20): tendency (H/D/A at 90') + exact home goals + exact away goals + exact bonus
+//   - ET (max 20, only when match went to ET AND user predicted FT draw): same 4 components
+//     against cumulative ET scores
+//   - Advancer (5): correct team to advance (pen winner counts)
+//   - First team/player scorer: unchanged
 func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 	var r tipComponents
 
-	// Reference scores for the accuracy components.
-	aH, aA := m.FtH, m.FtA
-	pH, pA := p.FtH, p.FtA
-	if m.Stage != "group" {
-		wentET := m.EtH != 0 || m.EtA != 0
-		if wentET {
-			aH, aA = m.EtH, m.EtA
-			if p.FtH == p.FtA { // user foresaw a draw -> use their ET guess
-				pH, pA = p.EtH, p.EtA
-			}
-		}
-	}
-
 	if m.Stage == "group" {
+		// ---- Group match scoring ----
 		if sign(p.FtH-p.FtA) == sign(m.FtH-m.FtA) {
 			r.Tendency = cfg.Match.Tendency
 		}
-	} else if m.Advancer != "" && m.Advancer == p.Advancer {
-		r.Tendency = cfg.Match.Tendency
+		if p.FtH == m.FtH && p.FtA == m.FtA {
+			r.Exact = cfg.Match.Exact
+		}
+		if p.FtH == m.FtH {
+			r.TotalGoals += cfg.Match.TotalGoals
+		}
+		if p.FtA == m.FtA {
+			r.TotalGoals += cfg.Match.TotalGoals
+		}
+		if p.FtH-p.FtA == m.FtH-m.FtA {
+			r.GoalDiff = cfg.Match.GoalDiff
+		}
+		if d := (p.FtH - p.FtA) - (m.FtH - m.FtA); d < 0 {
+			r.GdDev = -d
+		} else {
+			r.GdDev = d
+		}
+	} else {
+		// ---- Knockout match scoring ----
+
+		// FT components (always scored, based on the actual 90' result)
+		if p.FtH-p.FtA == m.FtH-m.FtA {
+			r.KOFtGoalDiff = cfg.Match.KOFtGoalDiff
+		}
+		if p.FtH == m.FtH {
+			r.KOFtExactHome = cfg.Match.KOFtExactHome
+		}
+		if p.FtA == m.FtA {
+			r.KOFtExactAway = cfg.Match.KOFtExactAway
+		}
+		if p.FtH == m.FtH && p.FtA == m.FtA {
+			r.KOFtExact = cfg.Match.KOFtExact
+		}
+		if d := (p.FtH - p.FtA) - (m.FtH - m.FtA); d < 0 {
+			r.GdDev = -d
+		} else {
+			r.GdDev = d
+		}
+
+		// ET components: only if the match actually went to ET and the user predicted a FT draw
+		wentET := m.EtH != 0 || m.EtA != 0
+		userPredictedDraw := p.FtH == p.FtA
+		if wentET && userPredictedDraw {
+			if p.EtH-p.EtA == m.EtH-m.EtA {
+				r.KOEtGoalDiff = cfg.Match.KOEtGoalDiff
+			}
+			if p.EtH == m.EtH {
+				r.KOEtExactHome = cfg.Match.KOEtExactHome
+			}
+			if p.EtA == m.EtA {
+				r.KOEtExactAway = cfg.Match.KOEtExactAway
+			}
+			if p.EtH == m.EtH && p.EtA == m.EtA {
+				r.KOEtExact = cfg.Match.KOEtExact
+			}
+		}
+
+		// Advancer
+		if m.Advancer != "" && m.Advancer == p.Advancer {
+			r.KOAdvancer = cfg.Match.KOAdvancer
+		}
 	}
 
-	if pH == aH && pA == aA {
-		r.Exact = cfg.Match.Exact
-	}
-	if pH == aH {
-		r.TotalGoals += cfg.Match.TotalGoals
-	}
-	if pA == aA {
-		r.TotalGoals += cfg.Match.TotalGoals
-	}
-	if pH-pA == aH-aA {
-		r.GoalDiff = cfg.Match.GoalDiff
-	}
-	if d := (pH - pA) - (aH - aA); d < 0 {
-		r.GdDev = -d
-	} else {
-		r.GdDev = d
-	}
+	// First scorer (all match types)
 	if m.FirstTeamScorer != "" && m.FirstTeamScorer == p.FirstTeam {
 		r.FirstTeamScorer = cfg.Match.FirstTeamScorer
 	}

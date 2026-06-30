@@ -30,6 +30,7 @@
 	let away = $derived(tipsStore.team(match.awayTeam));
 	let existing = $derived(tipsStore.tips[match.id]);
 	let isKO = $derived(match.stage !== 'group');
+	let wentET = $derived(isKO && (match.etHome !== 0 || match.etAway !== 0));
 	let played = $derived(match.status === 'finished' || !!match.finalizedAt);
 	let live = $derived(match.status === 'live');
 	let pts = $derived(tipsStore.scores[match.id]);
@@ -413,23 +414,75 @@
 					</div>
 					{#if played && myFriendEntry?.components}
 						{@const mc = myFriendEntry.components}
+						{@const myEtPredicted = isKO && existing && existing.ftHome === existing.ftAway}
+						{@const myFtGTotal = mc.koFtExactHome + mc.koFtExactAway}
+						{@const myEtTotal = mc.koEtGoalDiff + mc.koEtExactHome + mc.koEtExactAway + mc.koEtExact}
 						<div class="ybreakdown">
 							{#if isKO}
-								{#if mc.koAdvancer > 0}<span class="ycomp fc-tendency">→ +{mc.koAdvancer}</span>{/if}
-								{#if mc.koFtGoalDiff > 0}<span class="ycomp fc-diff">FT Δ +{mc.koFtGoalDiff}</span>{/if}
-								{#if mc.koFtExactHome > 0 || mc.koFtExactAway > 0}<span class="ycomp fc-goals">FT G +{mc.koFtExactHome + mc.koFtExactAway}</span>{/if}
-								{#if mc.koFtExact > 0}<span class="ycomp fc-exact">FT = +{mc.koFtExact}</span>{/if}
-								{#if mc.koEtGoalDiff > 0}<span class="ycomp fc-diff">ET Δ +{mc.koEtGoalDiff}</span>{/if}
-								{#if mc.koEtExactHome > 0 || mc.koEtExactAway > 0}<span class="ycomp fc-goals">ET G +{mc.koEtExactHome + mc.koEtExactAway}</span>{/if}
-								{#if mc.koEtExact > 0}<span class="ycomp fc-exact">ET = +{mc.koEtExact}</span>{/if}
-							{:else}
-								{#if mc.tendency > 0}<span class="ycomp fc-tendency">W/D +{mc.tendency}</span>{/if}
+								{#if mc.koAdvancer > 0}
+									<span class="ycomp fc-tendency">→ +{mc.koAdvancer}</span>
+								{:else}
+									<span class="ycomp fc-miss">→ missed</span>
+								{/if}
+								{#if mc.koFtGoalDiff > 0}
+									<span class="ycomp fc-diff">FT Δ +{mc.koFtGoalDiff}</span>
+								{:else}
+									<span class="ycomp fc-miss">FT Δ</span>
+								{/if}
+								{#if myFtGTotal > 0}
+									<span class="ycomp fc-goals">FT G +{myFtGTotal}</span>
+								{:else}
+									<span class="ycomp fc-miss">FT G</span>
+								{/if}
+								{#if mc.koFtExact > 0}
+									<span class="ycomp fc-exact">FT = +{mc.koFtExact}</span>
+								{:else}
+									<span class="ycomp fc-miss">FT =</span>
+								{/if}
+								{#if myEtPredicted}
+									{#if myEtTotal > 0}
+										<span class="ycomp fc-et">ET +{myEtTotal}</span>
+									{:else}
+										<span class="ycomp fc-miss">ET</span>
+									{/if}
+								{/if}
+								<!-- Legacy group fields on KO record -->
+								{#if mc.tendency > 0}<span class="ycomp fc-tendency">W +{mc.tendency}</span>{/if}
+								{#if mc.goalDiff > 0}<span class="ycomp fc-diff">Δ +{mc.goalDiff}</span>{/if}
 								{#if mc.exact > 0}<span class="ycomp fc-exact">= +{mc.exact}</span>{/if}
 								{#if mc.totalGoals > 0}<span class="ycomp fc-goals">G +{mc.totalGoals}</span>{/if}
-								{#if mc.goalDiff > 0}<span class="ycomp fc-diff">Δ +{mc.goalDiff}</span>{/if}
+							{:else}
+								{#if mc.tendency > 0}
+									<span class="ycomp fc-tendency">W/D +{mc.tendency}</span>
+								{:else}
+									<span class="ycomp fc-miss">W/D</span>
+								{/if}
+								{#if mc.goalDiff > 0}
+									<span class="ycomp fc-diff">Δ +{mc.goalDiff}</span>
+								{:else}
+									<span class="ycomp fc-miss">Δ</span>
+								{/if}
+								{#if mc.totalGoals > 0}
+									<span class="ycomp fc-goals">G +{mc.totalGoals}</span>
+								{:else}
+									<span class="ycomp fc-miss">G</span>
+								{/if}
+								{#if mc.exact > 0}
+									<span class="ycomp fc-exact">= +{mc.exact}</span>
+								{:else}
+									<span class="ycomp fc-miss">=</span>
+								{/if}
 							{/if}
-							{#if mc.firstTeamScorer > 0}<span class="ycomp fc-goals">1st Team +{mc.firstTeamScorer}</span>{/if}
-							{#if mc.firstPlayerScorer > 0}<span class="ycomp fc-exact">1st Player +{mc.firstPlayerScorer}</span>{/if}
+							{#if mc.firstTeamScorer > 0}
+								<span class="ycomp fc-goals">1st Team +{mc.firstTeamScorer}</span>
+							{:else if existing?.firstTeam}
+								<span class="ycomp fc-miss">1st Team</span>
+							{/if}
+							{#if mc.firstPlayerScorer > 0}
+								<span class="ycomp fc-exact">1st Player +{mc.firstPlayerScorer}</span>
+							{:else if existing?.firstPlayer}
+								<span class="ycomp fc-miss">1st Player</span>
+							{/if}
 							{#if mc.turbo}<span class="ycomp-turbo">⚡ ×2 turbo</span>{/if}
 						</div>
 					{/if}
@@ -501,21 +554,82 @@
 												<span class="fadv">→ {teamDisplayName(tipsStore.team(f.advancer))}</span>
 											{/if}
 											{#if c}
+												{@const etPredicted = isKO && f.ftHome === f.ftAway}
+												{@const ftGTotal = c.koFtExactHome + c.koFtExactAway}
+												{@const etTotal = c.koEtGoalDiff + c.koEtExactHome + c.koEtExactAway + c.koEtExact}
 												<span class="fcomps">
 													{#if isKO}
-														{#if c.koAdvancer > 0}<span class="fcomp fc-tendency">→ +{c.koAdvancer}</span>{/if}
-														{#if c.koFtGoalDiff > 0}<span class="fcomp fc-diff">FTΔ +{c.koFtGoalDiff}</span>{/if}
-														{#if c.koFtExactHome > 0 || c.koFtExactAway > 0}<span class="fcomp fc-goals">FTG +{c.koFtExactHome + c.koFtExactAway}</span>{/if}
-														{#if c.koFtExact > 0}<span class="fcomp fc-exact">FT= +{c.koFtExact}</span>{/if}
-														{#if c.koEtGoalDiff > 0 || c.koEtExactHome > 0 || c.koEtExactAway > 0 || c.koEtExact > 0}<span class="fcomp fc-et">ET +{c.koEtGoalDiff + c.koEtExactHome + c.koEtExactAway + c.koEtExact}</span>{/if}
-													{:else}
-														{#if c.tendency > 0}<span class="fcomp fc-tendency">W/D +{c.tendency}</span>{/if}
+														<!-- Advancer -->
+														{#if c.koAdvancer > 0}
+															<span class="fcomp fc-tendency">→ +{c.koAdvancer}</span>
+														{:else}
+															<span class="fcomp fc-miss">→</span>
+														{/if}
+														<!-- FT goal diff -->
+														{#if c.koFtGoalDiff > 0}
+															<span class="fcomp fc-diff">Δ +{c.koFtGoalDiff}</span>
+														{:else}
+															<span class="fcomp fc-miss">Δ</span>
+														{/if}
+														<!-- FT exact goals -->
+														{#if ftGTotal > 0}
+															<span class="fcomp fc-goals">G +{ftGTotal}</span>
+														{:else}
+															<span class="fcomp fc-miss">G</span>
+														{/if}
+														<!-- FT exact score bonus -->
+														{#if c.koFtExact > 0}
+															<span class="fcomp fc-exact">= +{c.koFtExact}</span>
+														{:else}
+															<span class="fcomp fc-miss">=</span>
+														{/if}
+														<!-- ET (only if user predicted FT draw) -->
+														{#if etPredicted}
+															{#if etTotal > 0}
+																<span class="fcomp fc-et">ET +{etTotal}</span>
+															{:else}
+																<span class="fcomp fc-miss">ET</span>
+															{/if}
+														{/if}
+														<!-- Legacy: group fields on KO record (old data) -->
+														{#if c.tendency > 0}<span class="fcomp fc-tendency">W +{c.tendency}</span>{/if}
+														{#if c.goalDiff > 0}<span class="fcomp fc-diff">Δ +{c.goalDiff}</span>{/if}
 														{#if c.exact > 0}<span class="fcomp fc-exact">= +{c.exact}</span>{/if}
 														{#if c.totalGoals > 0}<span class="fcomp fc-goals">G +{c.totalGoals}</span>{/if}
-														{#if c.goalDiff > 0}<span class="fcomp fc-diff">Δ +{c.goalDiff}</span>{/if}
+													{:else}
+														<!-- Group match -->
+														{#if c.tendency > 0}
+															<span class="fcomp fc-tendency">W/D +{c.tendency}</span>
+														{:else}
+															<span class="fcomp fc-miss">W/D</span>
+														{/if}
+														{#if c.goalDiff > 0}
+															<span class="fcomp fc-diff">Δ +{c.goalDiff}</span>
+														{:else}
+															<span class="fcomp fc-miss">Δ</span>
+														{/if}
+														{#if c.totalGoals > 0}
+															<span class="fcomp fc-goals">G +{c.totalGoals}</span>
+														{:else}
+															<span class="fcomp fc-miss">G</span>
+														{/if}
+														{#if c.exact > 0}
+															<span class="fcomp fc-exact">= +{c.exact}</span>
+														{:else}
+															<span class="fcomp fc-miss">=</span>
+														{/if}
 													{/if}
-													{#if c.firstTeamScorer > 0}<span class="fcomp fc-goals">1T +{c.firstTeamScorer}</span>{/if}
-													{#if c.firstPlayerScorer > 0}<span class="fcomp fc-exact">1P +{c.firstPlayerScorer}</span>{/if}
+													<!-- First scorer -->
+													{#if c.firstTeamScorer > 0}
+														<span class="fcomp fc-goals">1T +{c.firstTeamScorer}</span>
+													{:else if f.firstTeam}
+														<span class="fcomp fc-miss">1T</span>
+													{/if}
+													{#if c.firstPlayerScorer > 0}
+														<span class="fcomp fc-exact">1P +{c.firstPlayerScorer}</span>
+													{:else if f.firstPlayer}
+														<span class="fcomp fc-miss">1P</span>
+													{/if}
 												</span>
 											{/if}
 										</td>
@@ -1112,6 +1226,7 @@
 	.fc-goals    { background: color-mix(in srgb, var(--accent) 80%, #2a8a3d); }
 	.fc-diff     { background: color-mix(in srgb, var(--muted) 70%, #555); }
 	.fc-et       { background: color-mix(in srgb, var(--gold) 70%, #b45a1e); }
+	.fc-miss     { background: transparent; color: var(--muted); border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); opacity: 0.7; }
 	.fet {
 		display: block;
 		font-size: 0.75rem;
@@ -1158,6 +1273,12 @@
 		font-weight: 700;
 		color: #fff;
 		white-space: nowrap;
+	}
+	.ycomp.fc-miss {
+		background: transparent;
+		color: var(--muted);
+		border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
+		opacity: 0.6;
 	}
 	.ycomp-turbo {
 		display: inline-flex;

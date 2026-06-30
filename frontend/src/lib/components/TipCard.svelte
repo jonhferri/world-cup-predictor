@@ -452,11 +452,11 @@
 									{@const c = f.components}
 									{@const fResolvedTeam = f.firstTeam || (f.firstPlayer ? (players.find((p) => p.name === f.firstPlayer)?.teamId ?? '') : '')}
 									{@const fAutoTeam = !f.firstTeam && !!fResolvedTeam}
+									{@const ftExact = c && (isKO ? c.koFtExact > 0 : c.exact > 0)}
+									{@const ftTendency = c && (isKO ? c.koFtGoalDiff > 0 : c.tendency > 0) && !ftExact}
 									<tr class:fme={f.isMe}>
 										<td class="fname">{f.name}{#if f.turbo} <span class="fturbo" title="Turbo active">⚡</span>{/if}</td>
 										<td class="ftip">
-										  {{@const ftExact = c && (isKO ? c.koFtExact > 0 : c.exact > 0)}
-                     					  {@const ftTendency = c && (isKO ? c.koFtGoalDiff > 0 : c.tendency > 0) && !ftExact}
 											<span
 												class="fscore"
 												class:fscore-exact={ftExact}

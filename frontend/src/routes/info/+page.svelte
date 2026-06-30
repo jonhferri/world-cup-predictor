@@ -57,11 +57,14 @@
 	]);
 
 	let matchPoints = $derived.by(() => [
-		{ label: language.text('Rett utfall', 'Rett utfall', 'Correct outcome'), value: '5', detail: language.text('1/X/2 i gruppespill, laget som går videre i sluttspill', '1/X/2 i gruppespel, laget som går vidare i sluttspel', '1/X/2 in group stage, the team that advances in knockout') },
-		{ label: language.text('Eksakt resultat', 'Eksakt resultat', 'Exact score'), value: '+10', detail: language.text('samme resultat som sluttresultatet', 'same resultat som sluttresultatet', 'same score as the final result') },
-		{ label: language.text('Eksakt hjemmemål', 'Eksakt heimemål', 'Exact home goals'), value: '+5', detail: language.text('du tippa nøyaktig antall hjemmemål', 'du tippa nøyaktig tal heimemål', 'you guessed the home team\'s exact goal count') },
-		{ label: language.text('Eksakt bortemål', 'Eksakt bortemål', 'Exact away goals'), value: '+5', detail: language.text('du tippa nøyaktig antall bortemål', 'du tippa nøyaktig tal bortemål', 'you guessed the away team\'s exact goal count') },
-		{ label: language.text('Rett målforskjell', 'Rett målforskjell', 'Correct goal difference'), value: '+5', detail: language.text('for eksempel ettmålsseier eller uavgjort', 'til dømes eittmålsiger eller uavgjort', 'for example a one-goal win or a draw') },
+		{ label: language.text('Rett utfall (gruppespill)', 'Rett utfall (gruppespel)', 'Correct outcome (group stage)'), value: '5', detail: language.text('1/X/2 basert på resultatet etter 90 min', '1/X/2 basert på resultatet etter 90 min', '1/X/2 based on the 90-minute result') },
+		{ label: language.text('Eksakt hjemmemål (gruppespill)', 'Eksakt heimemål (gruppespel)', 'Exact home goals (group stage)'), value: '+5', detail: language.text('du tippa nøyaktig antall hjemmemål', 'du tippa nøyaktig tal heimemål', 'you guessed the home team\'s exact goal count') },
+		{ label: language.text('Eksakt bortemål (gruppespill)', 'Eksakt bortemål (gruppespel)', 'Exact away goals (group stage)'), value: '+5', detail: language.text('du tippa nøyaktig antall bortemål', 'du tippa nøyaktig tal bortemål', 'you guessed the away team\'s exact goal count') },
+		{ label: language.text('Eksakt resultat (gruppespill)', 'Eksakt resultat (gruppespel)', 'Exact score (group stage)'), value: '+10', detail: language.text('begge lag nøyaktig riktig etter 90 min', 'begge lag nøyaktig riktig etter 90 min', 'both teams\' goals exactly right after 90 min') },
+		{ label: language.text('Rett målforskjell (gruppespill)', 'Rett målforskjell (gruppespel)', 'Correct goal difference (group stage)'), value: '+5', detail: language.text('for eksempel ettmålsseier eller uavgjort', 'til dømes eittmålsiger eller uavgjort', 'for example a one-goal win or a draw') },
+		{ label: language.text('Sluttspill: rett FT-målforskjell + mål', 'Sluttspel: rett FT-målforskjell + mål', 'Knockout: correct FT goal diff + goals'), value: 'maks 20', detail: language.text('målforskjell (5) + eksakt hjemmemål (5) + eksakt bortemål (5) + eksakt bonus (5) etter 90 min', 'målforskjell (5) + eksakt heimemål (5) + eksakt bortemål (5) + eksakt bonus (5) etter 90 min', 'goal diff (5) + exact home (5) + exact away (5) + exact bonus (5) after 90 min') },
+		{ label: language.text('Sluttspill: rett ET-målforskjell + mål', 'Sluttspel: rett ET-målforskjell + mål', 'Knockout: correct ET goal diff + goals'), value: '+maks 20', detail: language.text('kun hvis kamp gikk til ekstraomganger og du tippa uavgjort etter 90 min', 'berre viss kampen gjekk til ekstraomgangar og du tippa uavgjort etter 90 min', 'only if match went to extra time and you predicted a draw at FT') },
+		{ label: language.text('Sluttspill: rett lag videre', 'Sluttspel: rett lag vidare', 'Knockout: correct team to advance'), value: '+5', detail: language.text('laget som faktisk gikk videre (inkl. etter straffespark)', 'laget som faktisk gjekk vidare (inkl. etter straffespark)', 'the team that actually advanced (including after penalties)') },
 		{ label: language.text('Første lag til å score', 'Første lag til å score', 'First team to score'), value: '+5', detail: language.text('laget som scorer kampens første mål', 'laget som scorar kampens første mål', 'the team that scores the first goal of the match') },
 		{ label: language.text('Første spiller til å score', 'Første spelar til å score', 'First player to score'), value: '+10', detail: language.text('spilleren som scorer kampens første mål', 'spelaren som scorar kampens første mål', 'the player who scores the first goal of the match') }
 	]);
@@ -168,7 +171,7 @@
 					<Volleyball size={20} />
 					<h3>{language.text('Kamptips', 'Kamptips', 'Match tips')}</h3>
 				</div>
-				<p>{language.text('Maks 45 poeng per kamp. I sluttspill teller laget som går videre som rett utfall.', 'Maks 45 poeng per kamp. I sluttspel tel laget som går vidare som rett utfall.', 'Max 45 points per match. In knockout, the advancing team counts as the correct outcome.')}</p>
+				<p>{language.text('Gruppespill: maks 30 poeng + førstemålscorer (15). Sluttspill: maks 45 poeng (FT 20 + ET 20 + videre 5) + førstemålscorer (15).', 'Gruppespel: maks 30 poeng + førstemålscorar (15). Sluttspel: maks 45 poeng (FT 20 + ET 20 + vidare 5) + førstemålscorar (15).', 'Group: max 30 pts + first scorer (15). Knockout: max 45 pts (FT 20 + ET 20 + advancer 5) + first scorer (15).')}</p>
 				<div class="point-list">
 					{#each matchPoints as point}
 						<div class="point-row">

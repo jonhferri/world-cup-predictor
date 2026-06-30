@@ -455,10 +455,12 @@
 									<tr class:fme={f.isMe}>
 										<td class="fname">{f.name}{#if f.turbo} <span class="fturbo" title="Turbo active">⚡</span>{/if}</td>
 										<td class="ftip">
+										  {{@const ftExact = c && (isKO ? c.koFtExact > 0 : c.exact > 0)}
+                     					  {@const ftTendency = c && (isKO ? c.koFtGoalDiff > 0 : c.tendency > 0) && !ftExact}
 											<span
 												class="fscore"
-												class:fscore-exact={c && c.exact > 0}
-												class:fscore-tendency={c && c.tendency > 0 && c.exact === 0}
+												class:fscore-exact={ftExact}
+                        						class:fscore-tendency={ftTendency}
 											>
 												{f.ftHome}:{f.ftAway}
 											</span>
@@ -467,10 +469,18 @@
 											{/if}
 											{#if c}
 												<span class="fcomps">
+												 {#if isKO}
+													{#if c.koAdvancer > 0}<span class="fcomp fc-tendency" title="Correct team to advance">→</span>{/if}
+													{#if c.koFtGoalDiff > 0}<span class="fcomp fc-diff" title="Correct FT goal difference">Δ</span>{/if}
+													{#if c.koFtExactHome > 0 || c.koFtExactAway > 0}<span class="fcomp fc-goals" title="Exact FT goals">G</span>{/if}
+													{#if c.koFtExact > 0}<span class="fcomp fc-exact" title="Exact FT score">=</span>{/if}
+													{#if c.koEtExact > 0 || c.koEtGoalDiff > 0 || c.koEtExactHome > 0 || c.koEtExactAway > 0}<span class="fcomp fc-et" title="ET scoring">ET</span>{/if}
+												  {:else}
 													{#if c.tendency > 0}<span class="fcomp fc-tendency" title="Correct outcome">W</span>{/if}
 													{#if c.exact > 0}<span class="fcomp fc-exact" title="Exact score">=</span>{/if}
 													{#if c.totalGoals > 0}<span class="fcomp fc-goals" title="Exact goals (home or away)">G</span>{/if}
 													{#if c.goalDiff > 0}<span class="fcomp fc-diff" title="Correct goal difference">Δ</span>{/if}
+												  {/if}
 												</span>
 											{/if}
 										</td>
@@ -1065,6 +1075,7 @@
 	.fc-exact    { background: var(--gold); }
 	.fc-goals    { background: color-mix(in srgb, var(--accent) 80%, #2a8a3d); }
 	.fc-diff     { background: color-mix(in srgb, var(--muted) 70%, #555); }
+	.fc-et       { background: color-mix(in srgb, var(--gold) 70%, #b45a1e); font-size: 0.5rem; width: auto; padding: 0 3px; }
 	.fts {
 		font-weight: 700;
 		color: var(--muted);

@@ -368,22 +368,24 @@ func ApplyFIFARankings(app core.App) error {
 // bonus). Forecast: exact group position (+ perfect bonus), +advance per
 // correctly-predicted advancer, escalating KO rounds.
 const DefaultScoringConfig = `{
-    "match": {
+  "match": {
     "tendency": 5,
     "exact": 5,
     "totalGoals": 5,
     "goalDiff": 5,
     "firstTeamScorer": 5,
     "firstPlayerScorer": 10,
+    "koFtTendency": 5,
     "koFtGoalDiff": 5,
     "koFtExactHome": 5,
     "koFtExactAway": 5,
     "koFtExact": 5,
+    "koEtTendency": 5,
     "koEtGoalDiff": 5,
     "koEtExactHome": 5,
     "koEtExactAway": 5,
     "koEtExact": 5,
-    "koAdvancer": 5
+    "koAdvancer": 10
   },
   "forecast": {
     "groupPosition": 1,

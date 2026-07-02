@@ -30,7 +30,6 @@
 	let away = $derived(tipsStore.team(match.awayTeam));
 	let existing = $derived(tipsStore.tips[match.id]);
 	let isKO = $derived(match.stage !== 'group');
-	let wentET = $derived(isKO && (match.etHome !== 0 || match.etAway !== 0));
 	let played = $derived(match.status === 'finished' || !!match.finalizedAt);
 	let live = $derived(match.status === 'live');
 	let pts = $derived(tipsStore.scores[match.id]);
@@ -77,7 +76,7 @@
 	);
 
 	$effect(() => {
-		if (!bodyVisible || !match.homeTeam || !match.awayTeam) return;
+		if (!canEdit || !match.homeTeam || !match.awayTeam) return;
 		tipsStore
 			.playersForTeams([match.homeTeam, match.awayTeam])
 			.then((list) => (players = list))
@@ -220,7 +219,6 @@
 	let visibleFriends = $derived(
 		showAllFriends ? sortedFriends : sortedFriends.slice(0, FRIENDS_PREVIEW_COUNT)
 	);
-	let myFriendEntry = $derived(sortedFriends.find(f => f.isMe));
 	async function toggleFriends() {
 		if (friends !== null) {
 			friends = null;
@@ -389,20 +387,13 @@
 				{#if existing}
 					<div class="yourtip" class:scored={played}>
 						<span class="ylabel">{t.tipCard.result}</span>
-						<div class="yscores-block">
-							<div class="yscore-row">
-								{#if isKO}<span class="yphase-tag">FT</span>{/if}
-								<span class="yscore digits">{existing.ftHome}<span class="cln">:</span>{existing.ftAway}</span>
-							</div>
-							{#if isKO && existing.ftHome === existing.ftAway}
-								<div class="yscore-row">
-									<span class="yphase-tag muted">ET</span>
-									<span class="yscore yset digits">{existing.etHome}<span class="cln">:</span>{existing.etAway}</span>
-								</div>
-							{/if}
-						</div>
+						<span class="yscore digits"
+							>{existing.ftHome}<span class="cln">:</span>{existing.ftAway}</span
+						>
 						{#if isKO && existing.advancer}
-							<span class="yadv">→ {teamDisplayName(tipsStore.team(existing.advancer), '—')}</span>
+							<span class="yadv"
+								>→ {teamDisplayName(tipsStore.team(existing.advancer), '—')}</span
+							>
 						{/if}
 						<span class="spacer"></span>
 						{#if played && pts !== undefined}
@@ -412,93 +403,17 @@
 							</span>
 						{/if}
 					</div>
-					{#if played && myFriendEntry?.components}
-						{@const mc = myFriendEntry.components}
-						{@const myEtPredicted = isKO && existing && existing.ftHome === existing.ftAway}
-						{@const myFtGTotal = mc.koFtExactHome + mc.koFtExactAway}
-						{@const myEtTotal = mc.koEtGoalDiff + mc.koEtExactHome + mc.koEtExactAway + mc.koEtExact}
-						<div class="ybreakdown">
-							{#if isKO}
-								{#if mc.koAdvancer > 0}
-									<span class="ycomp fc-tendency">→ +{mc.koAdvancer}</span>
-								{:else}
-									<span class="ycomp fc-miss">→ missed</span>
-								{/if}
-								{#if mc.koFtGoalDiff > 0}
-									<span class="ycomp fc-diff">FT Δ +{mc.koFtGoalDiff}</span>
-								{:else}
-									<span class="ycomp fc-miss">FT Δ</span>
-								{/if}
-								{#if myFtGTotal > 0}
-									<span class="ycomp fc-goals">FT G +{myFtGTotal}</span>
-								{:else}
-									<span class="ycomp fc-miss">FT G</span>
-								{/if}
-								{#if mc.koFtExact > 0}
-									<span class="ycomp fc-exact">FT = +{mc.koFtExact}</span>
-								{:else}
-									<span class="ycomp fc-miss">FT =</span>
-								{/if}
-								{#if myEtPredicted}
-									{#if myEtTotal > 0}
-										<span class="ycomp fc-et">ET +{myEtTotal}</span>
-									{:else}
-										<span class="ycomp fc-miss">ET</span>
-									{/if}
-								{/if}
-								<!-- Legacy group fields on KO record -->
-								{#if mc.tendency > 0}<span class="ycomp fc-tendency">W +{mc.tendency}</span>{/if}
-								{#if mc.goalDiff > 0}<span class="ycomp fc-diff">Δ +{mc.goalDiff}</span>{/if}
-								{#if mc.exact > 0}<span class="ycomp fc-exact">= +{mc.exact}</span>{/if}
-								{#if mc.totalGoals > 0}<span class="ycomp fc-goals">G +{mc.totalGoals}</span>{/if}
-							{:else}
-								{#if mc.tendency > 0}
-									<span class="ycomp fc-tendency">W/D +{mc.tendency}</span>
-								{:else}
-									<span class="ycomp fc-miss">W/D</span>
-								{/if}
-								{#if mc.goalDiff > 0}
-									<span class="ycomp fc-diff">Δ +{mc.goalDiff}</span>
-								{:else}
-									<span class="ycomp fc-miss">Δ</span>
-								{/if}
-								{#if mc.totalGoals > 0}
-									<span class="ycomp fc-goals">G +{mc.totalGoals}</span>
-								{:else}
-									<span class="ycomp fc-miss">G</span>
-								{/if}
-								{#if mc.exact > 0}
-									<span class="ycomp fc-exact">= +{mc.exact}</span>
-								{:else}
-									<span class="ycomp fc-miss">=</span>
-								{/if}
-							{/if}
-							{#if mc.firstTeamScorer > 0}
-								<span class="ycomp fc-goals">1st Team +{mc.firstTeamScorer}</span>
-							{:else if existing?.firstTeam}
-								<span class="ycomp fc-miss">1st Team</span>
-							{/if}
-							{#if mc.firstPlayerScorer > 0}
-								<span class="ycomp fc-exact">1st Player +{mc.firstPlayerScorer}</span>
-							{:else if existing?.firstPlayer}
-								<span class="ycomp fc-miss">1st Player</span>
-							{/if}
-							{#if mc.turbo}<span class="ycomp-turbo">⚡ ×2 turbo</span>{/if}
-						</div>
-					{/if}
 				{:else}
 						<p class="muted">{t.tipCard.noTipLocked}</p>
 				{/if}
 				{#if existing?.firstTeam || existing?.firstPlayer}
-					{@const resolvedFirstTeam = existing.firstTeam || (existing.firstPlayer ? (players.find((p) => p.name === existing.firstPlayer)?.teamId ?? '') : '')}
-					{@const isAutoTeam = !existing.firstTeam && !!resolvedFirstTeam}
 					<div class="first-scorer-locked">
-						{#if resolvedFirstTeam}
-							{@const ft = tipsStore.team(resolvedFirstTeam)}
+						{#if existing.firstTeam}
+							{@const ft = tipsStore.team(existing.firstTeam)}
 							<span class="fs-label">1st team:</span>
-							<span class="fs-val" class:fs-val-auto={isAutoTeam}>
+							<span class="fs-val">
 								{#if ft}<Flag iso2={ft.iso2} code={ft.fifaCode} />{/if}
-								{ft ? teamDisplayName(ft) : resolvedFirstTeam}
+								{ft ? teamDisplayName(ft) : existing.firstTeam}
 							</span>
 						{/if}
 						{#if existing.firstPlayer}
@@ -533,13 +448,11 @@
 							<tbody>
 								{#each visibleFriends as f (f.userId)}
 									{@const c = f.components}
-									{@const fResolvedTeam = f.firstTeam || (f.firstPlayer ? (players.find((p) => p.name === f.firstPlayer)?.teamId ?? '') : '')}
-									{@const fAutoTeam = !f.firstTeam && !!fResolvedTeam}
-									{@const ftExact = c && (isKO ? c.koFtExact > 0 : c.exact > 0)}
-									{@const ftTendency = c && (isKO ? c.koFtGoalDiff > 0 : c.tendency > 0) && !ftExact}
 									<tr class:fme={f.isMe}>
 										<td class="fname">{f.name}{#if f.turbo} <span class="fturbo" title="Turbo active">⚡</span>{/if}</td>
 										<td class="ftip">
+											{@const ftExact = c && (isKO ? c.koFtExact > 0 : c.exact > 0)}
+											{@const ftTendency = c && (isKO ? c.koFtTendency > 0 : c.tendency > 0) && !ftExact}
 											<span
 												class="fscore"
 												class:fscore-exact={ftExact}
@@ -547,100 +460,35 @@
 											>
 												{f.ftHome}:{f.ftAway}
 											</span>
-											{#if isKO && f.ftHome === f.ftAway}
-												<span class="fet">ET {f.etHome}:{f.etAway}</span>
-											{/if}
 											{#if f.advancer}
 												<span class="fadv">→ {teamDisplayName(tipsStore.team(f.advancer))}</span>
 											{/if}
 											{#if c}
-												{@const etPredicted = isKO && f.ftHome === f.ftAway}
-												{@const ftGTotal = c.koFtExactHome + c.koFtExactAway}
-												{@const etTotal = c.koEtGoalDiff + c.koEtExactHome + c.koEtExactAway + c.koEtExact}
 												<span class="fcomps">
 													{#if isKO}
-														<!-- Advancer -->
-														{#if c.koAdvancer > 0}
-															<span class="fcomp fc-tendency">→ +{c.koAdvancer}</span>
-														{:else}
-															<span class="fcomp fc-miss">→</span>
-														{/if}
-														<!-- FT goal diff -->
-														{#if c.koFtGoalDiff > 0}
-															<span class="fcomp fc-diff">Δ +{c.koFtGoalDiff}</span>
-														{:else}
-															<span class="fcomp fc-miss">Δ</span>
-														{/if}
-														<!-- FT exact goals -->
-														{#if ftGTotal > 0}
-															<span class="fcomp fc-goals">G +{ftGTotal}</span>
-														{:else}
-															<span class="fcomp fc-miss">G</span>
-														{/if}
-														<!-- FT exact score bonus -->
-														{#if c.koFtExact > 0}
-															<span class="fcomp fc-exact">= +{c.koFtExact}</span>
-														{:else}
-															<span class="fcomp fc-miss">=</span>
-														{/if}
-														<!-- ET (only if user predicted FT draw) -->
-														{#if etPredicted}
-															{#if etTotal > 0}
-																<span class="fcomp fc-et">ET +{etTotal}</span>
-															{:else}
-																<span class="fcomp fc-miss">ET</span>
-															{/if}
-														{/if}
-														<!-- Legacy: group fields on KO record (old data) -->
-														{#if c.tendency > 0}<span class="fcomp fc-tendency">W +{c.tendency}</span>{/if}
-														{#if c.goalDiff > 0}<span class="fcomp fc-diff">Δ +{c.goalDiff}</span>{/if}
-														{#if c.exact > 0}<span class="fcomp fc-exact">= +{c.exact}</span>{/if}
-														{#if c.totalGoals > 0}<span class="fcomp fc-goals">G +{c.totalGoals}</span>{/if}
+														{#if c.koAdvancer > 0}<span class="fcomp fc-tendency" title="Correct team to advance">→</span>{/if}
+														{#if c.koFtTendency > 0}<span class="fcomp fc-tendency" title="Correct FT outcome">W</span>{/if}
+														{#if c.koFtGoalDiff > 0}<span class="fcomp fc-diff" title="Correct FT goal difference">Δ</span>{/if}
+														{#if c.koFtExactHome > 0 || c.koFtExactAway > 0}<span class="fcomp fc-goals" title="Exact FT goals">G</span>{/if}
+														{#if c.koFtExact > 0}<span class="fcomp fc-exact" title="Exact FT score">=</span>{/if}
+														{#if c.koEtTendency > 0 || c.koEtExact > 0 || c.koEtGoalDiff > 0 || c.koEtExactHome > 0 || c.koEtExactAway > 0}<span class="fcomp fc-et" title="ET scoring">ET</span>{/if}
 													{:else}
-														<!-- Group match -->
-														{#if c.tendency > 0}
-															<span class="fcomp fc-tendency">W/D +{c.tendency}</span>
-														{:else}
-															<span class="fcomp fc-miss">W/D</span>
-														{/if}
-														{#if c.goalDiff > 0}
-															<span class="fcomp fc-diff">Δ +{c.goalDiff}</span>
-														{:else}
-															<span class="fcomp fc-miss">Δ</span>
-														{/if}
-														{#if c.totalGoals > 0}
-															<span class="fcomp fc-goals">G +{c.totalGoals}</span>
-														{:else}
-															<span class="fcomp fc-miss">G</span>
-														{/if}
-														{#if c.exact > 0}
-															<span class="fcomp fc-exact">= +{c.exact}</span>
-														{:else}
-															<span class="fcomp fc-miss">=</span>
-														{/if}
-													{/if}
-													<!-- First scorer -->
-													{#if c.firstTeamScorer > 0}
-														<span class="fcomp fc-goals">1T +{c.firstTeamScorer}</span>
-													{:else if f.firstTeam}
-														<span class="fcomp fc-miss">1T</span>
-													{/if}
-													{#if c.firstPlayerScorer > 0}
-														<span class="fcomp fc-exact">1P +{c.firstPlayerScorer}</span>
-													{:else if f.firstPlayer}
-														<span class="fcomp fc-miss">1P</span>
+														{#if c.tendency > 0}<span class="fcomp fc-tendency" title="Correct outcome">W</span>{/if}
+														{#if c.exact > 0}<span class="fcomp fc-exact" title="Exact score">=</span>{/if}
+														{#if c.totalGoals > 0}<span class="fcomp fc-goals" title="Exact goals (home or away)">G</span>{/if}
+														{#if c.goalDiff > 0}<span class="fcomp fc-diff" title="Correct goal difference">Δ</span>{/if}
 													{/if}
 												</span>
 											{/if}
 										</td>
 										<td class="ftip fscorer">
-											{#if fResolvedTeam}
-												<span class="fts" class:fts-ok={c && c.firstTeamScorer > 0} class:fts-auto={fAutoTeam}>{tipsStore.team(fResolvedTeam)?.fifaCode ?? teamDisplayName(tipsStore.team(fResolvedTeam))}</span>
+											{#if f.firstTeam}
+												<span class="fts" class:fts-ok={c && c.firstTeamScorer > 0}>{tipsStore.team(f.firstTeam)?.fifaCode ?? teamDisplayName(tipsStore.team(f.firstTeam))}</span>
 											{/if}
 											{#if f.firstPlayer}
 												<span class="fps" class:fps-ok={c && c.firstPlayerScorer > 0}>{f.firstPlayer.split(' ').pop()}</span>
 											{/if}
-											{#if !fResolvedTeam && !f.firstPlayer}
+											{#if !f.firstTeam && !f.firstPlayer}
 												<span class="muted">—</span>
 											{/if}
 										</td>
@@ -1212,86 +1060,19 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		height: 15px;
-		padding: 0 4px;
-		border-radius: 3px;
-		font-size: 0.6rem;
+		width: 14px;
+		height: 14px;
+		border-radius: 2px;
+		font-size: 0.58rem;
 		font-weight: 800;
 		letter-spacing: 0;
 		color: #fff;
-		white-space: nowrap;
 	}
 	.fc-tendency { background: var(--success); }
 	.fc-exact    { background: var(--gold); }
 	.fc-goals    { background: color-mix(in srgb, var(--accent) 80%, #2a8a3d); }
 	.fc-diff     { background: color-mix(in srgb, var(--muted) 70%, #555); }
-	.fc-et       { background: color-mix(in srgb, var(--gold) 70%, #b45a1e); }
-	.fc-miss     { background: transparent; color: var(--muted); border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); opacity: 0.7; }
-	.fet {
-		display: block;
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--muted);
-		margin-top: 1px;
-	}
-	.yscores-block {
-		display: flex;
-		flex-direction: column;
-		gap: 0.1rem;
-	}
-	.yscore-row {
-		display: flex;
-		align-items: baseline;
-		gap: 0.3rem;
-	}
-	.yphase-tag {
-		font-size: 0.62rem;
-		font-weight: 700;
-		letter-spacing: 0.07em;
-		text-transform: uppercase;
-		color: var(--muted);
-		min-width: 1.4rem;
-	}
-	.yset {
-		font-size: 1rem;
-		font-weight: 700;
-		color: var(--muted);
-	}
-	.ybreakdown {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 4px;
-		margin: 0.3rem 0 0.6rem;
-	}
-	.ycomp {
-		display: inline-flex;
-		align-items: center;
-		height: 18px;
-		padding: 0 6px;
-		border-radius: 4px;
-		font-size: 0.67rem;
-		font-weight: 700;
-		color: #fff;
-		white-space: nowrap;
-	}
-	.ycomp.fc-miss {
-		background: transparent;
-		color: var(--muted);
-		border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent);
-		opacity: 0.6;
-	}
-	.ycomp-turbo {
-		display: inline-flex;
-		align-items: center;
-		height: 18px;
-		padding: 0 6px;
-		border-radius: 4px;
-		font-size: 0.67rem;
-		font-weight: 700;
-		color: var(--gold);
-		border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--border));
-		background: color-mix(in srgb, var(--gold) 10%, var(--surface-2));
-	}
+	.fc-et       { background: color-mix(in srgb, var(--gold) 70%, #b45a1e); font-size: 0.5rem; width: auto; padding: 0 3px; }
 	.fts {
 		font-weight: 700;
 		color: var(--muted);
@@ -1577,13 +1358,6 @@
 		align-items: center;
 		gap: 0.3rem;
 		font-weight: 600;
-	}
-	.fs-val-auto {
-		opacity: 0.5;
-		font-weight: 500;
-	}
-	.fts-auto {
-		opacity: 0.5;
 	}
 	.turbo-btn {
 		display: inline-flex;

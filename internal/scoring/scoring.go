@@ -63,11 +63,13 @@ type Config struct {
 		FirstTeamScorer   int `json:"firstTeamScorer"`   // correct first team to score
 		FirstPlayerScorer int `json:"firstPlayerScorer"` // correct first player to score
 		// KO-specific FT scoring (applied to the 90' score)
+		KOFtTendency  int `json:"koFtTendency"`  // correct FT outcome (H/D/A)
 		KOFtGoalDiff  int `json:"koFtGoalDiff"`  // correct goal difference at FT
 		KOFtExactHome int `json:"koFtExactHome"` // exact home goals at FT
 		KOFtExactAway int `json:"koFtExactAway"` // exact away goals at FT
 		KOFtExact     int `json:"koFtExact"`     // both FT goals exactly right
 		// KO-specific ET scoring (only if match went to ET and user predicted FT draw)
+		KOEtTendency  int `json:"koEtTendency"`  // correct ET outcome (H/D/A)
 		KOEtGoalDiff  int `json:"koEtGoalDiff"`  // correct goal difference at ET
 		KOEtExactHome int `json:"koEtExactHome"` // exact home goals at ET (cumulative)
 		KOEtExactAway int `json:"koEtExactAway"` // exact away goals at ET (cumulative)
@@ -95,6 +97,9 @@ func loadConfig(rec *core.Record) Config {
 		c.Forecast.GoldenBootWinner = 15
 	}
 	// KO fields default to 5 if not present in older configs.
+	if c.Match.KOFtTendency == 0 {
+		c.Match.KOFtTendency = 5
+	}
 	if c.Match.KOFtGoalDiff == 0 {
 		c.Match.KOFtGoalDiff = 5
 	}
@@ -106,6 +111,9 @@ func loadConfig(rec *core.Record) Config {
 	}
 	if c.Match.KOFtExact == 0 {
 		c.Match.KOFtExact = 5
+	}
+	if c.Match.KOEtTendency == 0 {
+		c.Match.KOEtTendency = 5
 	}
 	if c.Match.KOEtGoalDiff == 0 {
 		c.Match.KOEtGoalDiff = 5
@@ -120,7 +128,7 @@ func loadConfig(rec *core.Record) Config {
 		c.Match.KOEtExact = 5
 	}
 	if c.Match.KOAdvancer == 0 {
-		c.Match.KOAdvancer = 5
+		c.Match.KOAdvancer = 10
 	}
 	return c
 }
@@ -171,10 +179,12 @@ type tipComponents struct {
 	FirstTeamScorer   int  `json:"firstTeamScorer"`
 	FirstPlayerScorer int  `json:"firstPlayerScorer"`
 	// KO-specific components
+	KOFtTendency  int `json:"koFtTendency"`
 	KOFtGoalDiff  int `json:"koFtGoalDiff"`
 	KOFtExactHome int `json:"koFtExactHome"`
 	KOFtExactAway int `json:"koFtExactAway"`
 	KOFtExact     int `json:"koFtExact"`
+	KOEtTendency  int `json:"koEtTendency"`
 	KOEtGoalDiff  int `json:"koEtGoalDiff"`
 	KOEtExactHome int `json:"koEtExactHome"`
 	KOEtExactAway int `json:"koEtExactAway"`
@@ -186,8 +196,8 @@ type tipComponents struct {
 func (c tipComponents) points() int {
 	base := c.Tendency + c.Exact + c.TotalGoals + c.GoalDiff +
 		c.FirstTeamScorer + c.FirstPlayerScorer +
-		c.KOFtGoalDiff + c.KOFtExactHome + c.KOFtExactAway + c.KOFtExact +
-		c.KOEtGoalDiff + c.KOEtExactHome + c.KOEtExactAway + c.KOEtExact +
+		c.KOFtTendency + c.KOFtGoalDiff + c.KOFtExactHome + c.KOFtExactAway + c.KOFtExact +
+		c.KOEtTendency + c.KOEtGoalDiff + c.KOEtExactHome + c.KOEtExactAway + c.KOEtExact +
 		c.KOAdvancer
 	if c.Turbo {
 		return base * 2
@@ -253,6 +263,9 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 		// ---- Knockout match scoring ----
 
 		// FT components (always scored, based on the actual 90' result)
+		if sign(p.FtH-p.FtA) == sign(m.FtH-m.FtA) {
+			r.KOFtTendency = cfg.Match.KOFtTendency
+		}
 		if p.FtH-p.FtA == m.FtH-m.FtA {
 			r.KOFtGoalDiff = cfg.Match.KOFtGoalDiff
 		}
@@ -275,6 +288,9 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 		wentET := m.EtH != 0 || m.EtA != 0
 		userPredictedDraw := p.FtH == p.FtA
 		if wentET && userPredictedDraw {
+			if sign(p.EtH-p.EtA) == sign(m.EtH-m.EtA) {
+				r.KOEtTendency = cfg.Match.KOEtTendency
+			}
 			if p.EtH-p.EtA == m.EtH-m.EtA {
 				r.KOEtGoalDiff = cfg.Match.KOEtGoalDiff
 			}
@@ -305,34 +321,7 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 	return r
 }
 
-// resolvePlayerTeam looks up the team record ID for the given player name.
-// It first tries an exact match, then falls back to normalized comparison
-// (diacritics stripped, lowercase) so "Julián" matches "Julian".
-func resolvePlayerTeam(app core.App, playerName string) string {
-	if p, err := app.FindFirstRecordByFilter("players",
-		"name = {:n}", map[string]any{"n": playerName}); err == nil {
-		return p.GetString("teamId")
-	}
-	players, err := app.FindRecordsByFilter("players", "id != ''", "", 0, 0)
-	if err != nil {
-		return ""
-	}
-	norm := normalizeName(playerName)
-	for _, p := range players {
-		if normalizeName(p.GetString("name")) == norm {
-			return p.GetString("teamId")
-		}
-	}
-	return ""
-}
-
-func scoreTip(app core.App, cfg Config, match, tip *core.Record) tipComponents {
-	firstTeam := tip.GetString("firstTeam")
-	if firstTeam == "" {
-		if player := tip.GetString("firstPlayer"); player != "" {
-			firstTeam = resolvePlayerTeam(app, player)
-		}
-	}
+func scoreTip(cfg Config, match, tip *core.Record) tipComponents {
 	r := scoreValues(cfg,
 		MatchResult{
 			Stage:             match.GetString("stage"),
@@ -350,7 +339,7 @@ func scoreTip(app core.App, cfg Config, match, tip *core.Record) tipComponents {
 			EtH:         tip.GetInt("etHome"),
 			EtA:         tip.GetInt("etAway"),
 			Advancer:    tip.GetString("advancer"),
-			FirstTeam:   firstTeam,
+			FirstTeam:   tip.GetString("firstTeam"),
 			FirstPlayer: tip.GetString("firstPlayer"),
 		},
 	)

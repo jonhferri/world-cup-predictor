@@ -71,15 +71,17 @@ export interface TipComponents {
 	firstTeamScorer: number;
 	firstPlayerScorer: number;
 	// KO-specific
-    koFtGoalDiff: number;
-    koFtExactHome: number;
-    koFtExactAway: number;
-    koFtExact: number;
-    koEtGoalDiff: number;
-    koEtExactHome: number;
-    koEtExactAway: number;
-    koEtExact: number;
-    koAdvancer: number;
+	koFtTendency: number;
+	koFtGoalDiff: number;
+	koFtExactHome: number;
+	koFtExactAway: number;
+	koFtExact: number;
+	koEtTendency: number;
+	koEtGoalDiff: number;
+	koEtExactHome: number;
+	koEtExactAway: number;
+	koEtExact: number;
+	koAdvancer: number;
 	turbo: boolean;
 }
 

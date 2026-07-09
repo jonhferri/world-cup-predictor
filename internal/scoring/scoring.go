@@ -285,7 +285,7 @@ func scoreValues(cfg Config, m MatchResult, p TipPrediction) tipComponents {
 		}
 
 		// ET components: only if the match actually went to ET and the user predicted a FT draw
-		wentET := m.EtH != 0 || m.EtA != 0
+		wentET := m.FtH == m.FtA
 		userPredictedDraw := p.FtH == p.FtA
 		if wentET && userPredictedDraw {
 			if sign(p.EtH-p.EtA) == sign(m.EtH-m.EtA) {

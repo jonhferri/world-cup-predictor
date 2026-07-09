@@ -114,6 +114,11 @@ func Recompute(app core.App) error {
 // Register wires automatic recompute on result changes and a manual
 // superuser trigger.
 func Register(app core.App, se *core.ServeEvent) {
+	app.Cron().MustAdd("recompute-scores", "0 0 1 1 *", func() {
+	    if err := Recompute(app); err != nil {
+	      log.Printf("[scoring] recompute: %v", err)
+	    }
+	  })
 	app.OnRecordAfterUpdateSuccess("matches").BindFunc(func(e *core.RecordEvent) error {
 		// Recompute when a result is finalized/corrected, or when a knockout
 		// match's teams resolve (affects Forecast round scoring).

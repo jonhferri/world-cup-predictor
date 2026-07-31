@@ -21,7 +21,7 @@ import (
 // from publishes scores into 2026/worldcup.json during the tournament.
 // Matches map 1:1 to our rows by the shared deterministic ExtID (no team
 // name aliasing), and its `score.et` is already the cumulative after-120
-// score — exactly our model.
+// score — exactly our model. just a comment
 const ofLiveURL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json"
 
 type ofScore struct {
